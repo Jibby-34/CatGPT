@@ -44,24 +44,56 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _pickedImageBytes = imageBytes;
     });
+    callGemini();
   }
 
   Future<Uint8List?> pickImage() async {
-  final picker = ImagePicker();
-  final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
 
-  if (pickedFile != null) {
-    if (kIsWeb) {
-      // On web, read as bytes
-      return await pickedFile.readAsBytes();
+    if (pickedFile != null) {
+      if (kIsWeb) {
+        // On web, read as bytes
+        return await pickedFile.readAsBytes();
+      } else {
+        // On mobile, read as bytes
+        final file = File(pickedFile.path);
+        return await file.readAsBytes();
+      }
+    }
+    return null;
+  }
+
+  Future<void> callGemini() async {
+    final apiKey = 'AIzaSyAiV17lMotobdGjP9UydikjhgFRXCbzV9w';
+    final url = Uri.parse(
+      'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=$apiKey',
+    );
+
+    final headers = {
+      'Content-Type': 'application/json',
+    };
+
+    final body = jsonEncode({
+      "contents": [
+        {
+          "parts": [
+            {"text": "Write a short haiku about cats."}
+          ]
+        }
+      ]
+    });
+
+    final response = await http.post(url, headers: headers, body: body);
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      final text = data["candidates"][0]["content"]["parts"][0]["text"];
+      print("💡 Gemini says: $text");
     } else {
-      // On mobile, read as bytes
-      final file = File(pickedFile.path);
-      return await file.readAsBytes();
+      print("❌ Error: ${response.statusCode} - ${response.body}");
     }
   }
-  return null;
-}
 
   @override
   Widget build(BuildContext context) {
