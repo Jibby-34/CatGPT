@@ -36,6 +36,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   Uint8List? _pickedImageBytes;
   int _currentIndex = 1;
+  
+  // ⭐ NEW: Store output text from API
+  String? _outputText;
 
   Future<void> _onImageUpload() async {
     final imageBytes = await pickImage();
@@ -43,8 +46,10 @@ class _HomePageState extends State<HomePage> {
 
     setState(() {
       _pickedImageBytes = imageBytes;
+      _outputText = null; // reset before evaluating
     });
-    callGemini();
+
+    await evaluateImage(); // ⭐ Make sure we await this
   }
 
   Future<Uint8List?> pickImage() async {
@@ -53,10 +58,8 @@ class _HomePageState extends State<HomePage> {
 
     if (pickedFile != null) {
       if (kIsWeb) {
-        // On web, read as bytes
         return await pickedFile.readAsBytes();
       } else {
-        // On mobile, read as bytes
         final file = File(pickedFile.path);
         return await file.readAsBytes();
       }
@@ -64,8 +67,14 @@ class _HomePageState extends State<HomePage> {
     return null;
   }
 
-  Future<void> callGemini() async {
-    final apiKey = 'AIzaSyAiV17lMotobdGjP9UydikjhgFRXCbzV9w';
+  Future<void> evaluateImage() async {
+    if (_pickedImageBytes == null) {
+      print("❌ No image selected");
+      return;
+    }
+
+    // PLEASE REMOVE BEFORE PUSH
+    const apiKey = 'AIzaSyAiV17lMotobdGjP9UydikjhgFRXCbzV9w';
     final url = Uri.parse(
       'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=$apiKey',
     );
@@ -74,11 +83,24 @@ class _HomePageState extends State<HomePage> {
       'Content-Type': 'application/json',
     };
 
+    // Encode image as base64
+    final base64Image = base64Encode(_pickedImageBytes!);
+
+    // 👇 Build request with text + image
     final body = jsonEncode({
       "contents": [
         {
           "parts": [
-            {"text": "Write a short haiku about cats."}
+            {
+              "text":
+                  "Analyze this cat's body language and interpret it's feelings into a dialogue-like phrase. Additionally, add reasoning for the decision in short phrases, encapsulated in []. An example phrase: Feed me you stupid human! [eyes slit, tail straight, showing trust]"
+            },
+            {
+              "inline_data": {
+                "mime_type": "image/jpeg", // or "image/png" if PNG
+                "data": base64Image
+              }
+            }
           ]
         }
       ]
@@ -90,10 +112,14 @@ class _HomePageState extends State<HomePage> {
       final data = jsonDecode(response.body);
       final text = data["candidates"][0]["content"]["parts"][0]["text"];
       print("💡 Gemini says: $text");
+      setState(() {
+        _outputText = text;
+      });
     } else {
       print("❌ Error: ${response.statusCode} - ${response.body}");
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -107,11 +133,11 @@ class _HomePageState extends State<HomePage> {
       ),
       body: Center(
         child: Column(
-          mainAxisSize: MainAxisSize.min, 
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             // Image preview or placeholder
-           Container(
+            Container(
               height: 250,
               width: 250,
               decoration: BoxDecoration(
@@ -133,11 +159,29 @@ class _HomePageState extends State<HomePage> {
               icon: const Icon(Icons.upload),
               label: const Text("Upload Cat Photo"),
             ),
+
+            // ⭐ NEW: Output text box — only appears if _outputText != null
+            if (_outputText != null) ...[
+              const SizedBox(height: 20),
+              Container(
+                width: 300,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.teal.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.teal, width: 1.5),
+                ),
+                child: Text(
+                  _outputText!,
+                  style: const TextStyle(fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
           ],
         ),
       ),
 
-      // Bottom navigation bar
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         onTap: (index) => setState(() => _currentIndex = index),
