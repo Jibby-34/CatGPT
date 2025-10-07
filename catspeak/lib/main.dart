@@ -74,7 +74,7 @@ class _HomePageState extends State<HomePage> {
     }
 
     // PLEASE REMOVE BEFORE PUSH
-    const apiKey = 'AIzaSyAiV17lMotobdGjP9UydikjhgFRXCbzV9w';
+    const apiKey = 'Ha- I bet you want my API key';
     final url = Uri.parse(
       'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=$apiKey',
     );
@@ -93,7 +93,7 @@ class _HomePageState extends State<HomePage> {
           "parts": [
             {
               "text":
-                  "Analyze this cat's body language and interpret it's feelings into a dialogue-like phrase. Additionally, add reasoning for the decision in short phrases, encapsulated in []. An example phrase: Feed me you stupid human! [eyes slit, tail straight, showing trust]"
+                  "Analyze this cat's body language and interpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). Additionally, add reasoning for the decision in short phrases, encapsulated in []. the reasons should ONLY contain a single set of [], with one or two word reasons in a comma separated list. Provide exactly 3 reasons. An example phrase: Feed me you stupid human! [eyes slit, tail straight, showing trust]"
             },
             {
               "inline_data": {
