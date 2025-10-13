@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:record/record.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'camera_page.dart';
 import 'history_page.dart';
@@ -32,6 +33,45 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   final ImagePicker _picker = ImagePicker();
   final AudioRecorder _audioRecorder = AudioRecorder();
+  SharedPreferences? _prefs;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefsAndHistory();
+  }
+
+  Future<void> _loadPrefsAndHistory() async {
+    _prefs = await SharedPreferences.getInstance();
+    final texts = _prefs!.getStringList('translationHistory') ?? [];
+    final imagesB64 = _prefs!.getStringList('imageHistory') ?? [];
+    final audiosB64 = _prefs!.getStringList('audioHistory') ?? [];
+    setState(() {
+      translationHistory = texts;
+      imageHistory = imagesB64.map((s) => s.isEmpty ? null : base64Decode(s)).toList();
+      audioHistory = audiosB64.map((s) => s.isEmpty ? null : base64Decode(s)).toList();
+    });
+  }
+
+  Future<void> _saveHistory() async {
+    if (_prefs == null) return;
+    // Normalize list lengths
+    final maxLen = translationHistory.length;
+    void padTo<T>(List<T?> list) { while (list.length < maxLen) list.add(null); }
+    padTo(imageHistory);
+    padTo(audioHistory);
+
+    await _prefs!.setStringList('translationHistory', translationHistory);
+    await _prefs!.setStringList('imageHistory', imageHistory.map((b) => b == null ? '' : base64Encode(b)).toList());
+    await _prefs!.setStringList('audioHistory', audioHistory.map((b) => b == null ? '' : base64Encode(b)).toList());
+  }
+
+  void _addHistoryEntry({required String text, Uint8List? imageBytes, Uint8List? audioBytes}) {
+    translationHistory.add(text);
+    imageHistory.add(imageBytes);
+    audioHistory.add(audioBytes);
+    _saveHistory();
+  }
 
   Future<Uint8List?> pickImage() async {
     try {
@@ -42,12 +82,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         imageQuality: 85,
       );
       if (pickedFile == null) return null;
+      Uint8List bytes;
       if (kIsWeb) {
-        return await pickedFile.readAsBytes();
+        bytes = await pickedFile.readAsBytes();
       } else {
         final file = File(pickedFile.path);
-        return await file.readAsBytes();
+        bytes = await file.readAsBytes();
       }
+      if (mounted) {
+        setState(() {
+          _pickedImageBytes = bytes;
+          // Clear any previous text so other tabs don't show stale content
+          _outputText = null;
+        });
+      }
+      return bytes;
     } catch (e) {
       debugPrint('pickImage error: $e');
       return null;
@@ -72,9 +121,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Future<void> _onRecordAudio() async {
     try {
       if (await _audioRecorder.hasPermission()) {
-        await _audioRecorder.start(const RecordConfig(), path: 'audio_recording.m4a');
-        // The actual recording will be handled by the AudioPage
+        // Navigate to Audio tab and let AudioPage manage recording
         setState(() {
+          _currentIndex = 2;
           _recordedAudioBytes = null;
           _outputText = null;
         });
@@ -133,8 +182,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
         setState(() {
           _outputText = text;
-          translationHistory.add(text);
-          imageHistory.add(_pickedImageBytes);
+          _addHistoryEntry(text: text, imageBytes: _pickedImageBytes, audioBytes: null);
         });
       } else {
         debugPrint('API error ${response.statusCode}: ${response.body}');
@@ -153,25 +201,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<Uint8List?> recordAudio() async {
+  Future<Uint8List?> recordAudio(String path) async {
     try {
-      if (await _audioRecorder.hasPermission()) {
-        final path = await _audioRecorder.stop();
-        if (path != null) {
-          final file = File(path);
-          final bytes = await file.readAsBytes();
-          setState(() {
-            _recordedAudioBytes = bytes;
-            _outputText = null;
-          });
-          return bytes;
-        }
-      } else {
-        if (!mounted) return null;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Microphone permission denied')),
-        );
-      }
+      final file = File(path);
+      final bytes = await file.readAsBytes();
+      setState(() {
+        _recordedAudioBytes = bytes;
+        _outputText = null;
+      });
+      return bytes;
     } catch (e) {
       debugPrint('recordAudio error: $e');
       if (!mounted) return null;
@@ -222,8 +260,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
         setState(() {
           _outputText = text;
-          translationHistory.add(text);
-          audioHistory.add(_recordedAudioBytes);
+          _addHistoryEntry(text: text, imageBytes: null, audioBytes: _recordedAudioBytes);
         });
       } else {
         debugPrint('API error ${response.statusCode}: ${response.body}');
@@ -280,15 +317,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               child: const Icon(Icons.camera_alt_rounded, size: 28),
             )
-          : _currentIndex == 2
-              ? FloatingActionButton(
-                  onPressed: _onRecordAudio,
-                  tooltip: 'Record Audio',
-                  elevation: 6,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                  child: const Icon(Icons.mic, size: 28),
-                )
-              : null,
+              : _currentIndex == 2
+                  ? null // AudioPage manages its own recording controls
+                  : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
         color: Colors.white,
@@ -308,7 +339,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       ? theme.colorScheme.primary
                       : Colors.black54,
                 ),
-                onPressed: () => setState(() => _currentIndex = 0),
+                onPressed: () => setState(() {
+                  _currentIndex = 0;
+                  _outputText = null;
+                }),
                 tooltip: 'Home',
               ),
               IconButton(
@@ -319,7 +353,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       ? theme.colorScheme.primary
                       : Colors.black54,
                 ),
-                onPressed: () => setState(() => _currentIndex = 1),
+                onPressed: () => setState(() {
+                  _currentIndex = 1;
+                  // Clear cross-tab artifacts
+                  _outputText = null;
+                }),
                 tooltip: 'Camera',
               ),
               IconButton(
@@ -330,7 +368,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       ? theme.colorScheme.primary
                       : Colors.black54,
                 ),
-                onPressed: () => setState(() => _currentIndex = 2),
+                onPressed: () => setState(() {
+                  _currentIndex = 2;
+                  // Clear cross-tab artifacts
+                  _outputText = null;
+                }),
                 tooltip: 'Audio',
               ),
               IconButton(
@@ -341,7 +383,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       ? theme.colorScheme.primary
                       : Colors.black54,
                 ),
-                onPressed: () => setState(() => _currentIndex = 3),
+                onPressed: () => setState(() {
+                  _currentIndex = 3;
+                  // Avoid showing stale text in other tabs after returning
+                  _outputText = null;
+                }),
                 tooltip: 'History',
               ),
             ],

@@ -1,12 +1,12 @@
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:record/record.dart';
-import 'dart:io';
 
 class AudioPage extends StatefulWidget {
   final Uint8List? recordedAudioBytes;
   final String? outputText;
-  final Future<Uint8List?> Function() recordAudio;
+  final Future<Uint8List?> Function(String path) recordAudio;
   final Future<void> Function() evaluateAudio;
 
   const AudioPage({
@@ -54,6 +54,13 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
 
   Future<void> _startRecording() async {
     try {
+      if (kIsWeb) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Recording is not supported on web')),
+        );
+        return;
+      }
       if (await _audioRecorder.hasPermission()) {
         await _audioRecorder.start(const RecordConfig(), path: 'audio_recording.m4a');
         setState(() {
@@ -81,9 +88,7 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
     try {
       final path = await _audioRecorder.stop();
       if (path != null) {
-        final file = File(path);
-        await file.readAsBytes();
-        await widget.recordAudio();
+        await widget.recordAudio(path);
         await widget.evaluateAudio();
       }
       setState(() {
@@ -250,8 +255,7 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
                       if (widget.recordedAudioBytes != null)
                         TextButton.icon(
                           onPressed: () async {
-                            await widget.recordAudio();
-                            await widget.evaluateAudio();
+                            await _startRecording();
                           },
                           icon: const Icon(Icons.refresh_outlined),
                           label: const Text('Re-record'),

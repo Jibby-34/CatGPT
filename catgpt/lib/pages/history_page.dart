@@ -32,10 +32,16 @@ class HistoryPage extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 12),
         itemCount: translationHistory.length,
         itemBuilder: (context, index) {
-          final reverseIndex = translationHistory.length - 1 - index;
+          final len = translationHistory.length;
+          final reverseIndex = len - 1 - index;
+
+          // Guard against length mismatches between lists
+          final safeImageIndex = reverseIndex < imageHistory.length ? reverseIndex : -1;
+          final safeAudioIndex = reverseIndex < audioHistory.length ? reverseIndex : -1;
+
           final translation = translationHistory[reverseIndex];
-          final imageBytes = imageHistory[reverseIndex];
-          final audioBytes = audioHistory[reverseIndex];
+          final imageBytes = safeImageIndex >= 0 ? imageHistory[safeImageIndex] : null;
+          final audioBytes = safeAudioIndex >= 0 ? audioHistory[safeAudioIndex] : null;
           final isAudio = audioBytes != null;
 
           return GestureDetector(
