@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 class HistoryPage extends StatelessWidget {
   final List<String> translationHistory;
   final List<Uint8List?> imageHistory;
+  final List<Uint8List?> audioHistory;
 
   const HistoryPage({
     super.key,
     required this.translationHistory,
     required this.imageHistory,
+    required this.audioHistory,
   });
 
   @override
@@ -33,9 +35,11 @@ class HistoryPage extends StatelessWidget {
           final reverseIndex = translationHistory.length - 1 - index;
           final translation = translationHistory[reverseIndex];
           final imageBytes = imageHistory[reverseIndex];
+          final audioBytes = audioHistory[reverseIndex];
+          final isAudio = audioBytes != null;
 
           return GestureDetector(
-            onTap: () => _showDetail(context, translation, imageBytes),
+            onTap: () => _showDetail(context, translation, imageBytes, audioBytes),
             child: Card(
               margin: const EdgeInsets.symmetric(vertical: 8),
               shape: RoundedRectangleBorder(
@@ -47,25 +51,41 @@ class HistoryPage extends StatelessWidget {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(10),
-                      child: imageBytes != null
-                          ? Image.memory(imageBytes,
-                              width: 92, height: 92, fit: BoxFit.cover)
-                          : Container(
+                      child: isAudio
+                          ? Container(
                               width: 92,
                               height: 92,
-                              color: Colors.grey[200],
-                              child: const Icon(Icons.image, size: 36),
-                            ),
+                              color: Colors.blue[50],
+                              child: const Icon(Icons.mic, size: 36, color: Colors.blue),
+                            )
+                          : imageBytes != null
+                              ? Image.memory(imageBytes,
+                                  width: 92, height: 92, fit: BoxFit.cover)
+                              : Container(
+                                  width: 92,
+                                  height: 92,
+                                  color: Colors.grey[200],
+                                  child: const Icon(Icons.image, size: 36),
+                                ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            _shortPreview(translation),
-                            style: const TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.w600),
+                          Row(
+                            children: [
+                              if (isAudio)
+                                const Icon(Icons.mic, size: 16, color: Colors.blue),
+                              if (isAudio) const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  _shortPreview(translation),
+                                  style: const TextStyle(
+                                      fontSize: 16, fontWeight: FontWeight.w600),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 8),
                           Text(
@@ -105,7 +125,9 @@ class HistoryPage extends StatelessWidget {
     return 'Tap to view full analysis';
   }
 
-  void _showDetail(BuildContext context, String translation, Uint8List? image) {
+  void _showDetail(BuildContext context, String translation, Uint8List? image, Uint8List? audio) {
+    final isAudio = audio != null;
+    
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -119,11 +141,45 @@ class HistoryPage extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               child: Column(
                 children: [
-                  if (image != null)
+                  if (isAudio)
+                    Container(
+                      height: 200,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.blue[50],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.blue[200]!),
+                      ),
+                      child: const Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.mic, size: 64, color: Colors.blue),
+                            SizedBox(height: 8),
+                            Text(
+                              'Audio Recording',
+                              style: TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.blue,
+                              ),
+                            ),
+                            SizedBox(height: 4),
+                            Text(
+                              'Tap to play (coming soon)',
+                              style: TextStyle(
+                                fontSize: 14,
+                                color: Colors.blue,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    )
+                  else if (image != null)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
-                      child:
-                          Image.memory(image, height: 260, fit: BoxFit.cover),
+                      child: Image.memory(image, height: 260, fit: BoxFit.cover),
                     ),
                   const SizedBox(height: 12),
                   Text(
