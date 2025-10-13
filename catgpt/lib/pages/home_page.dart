@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:catspeak/widgets/catgpt_logo.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -130,11 +131,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       appBar: AppBar(
         title: Row(
           mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.pets, size: 22),
-            const SizedBox(width: 8),
-            Text('CatGPT',
-                style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+          children: const [
+            CatGptLogo(size: 35),
+            SizedBox(width: 8),
+            Text('CatGPT'),
           ],
         ),
         actions: [
@@ -256,7 +256,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 }
 
 class _HomePageContent extends StatelessWidget {
-  const _HomePageContent({super.key});
+  const _HomePageContent();
 
   @override
   Widget build(BuildContext context) {
@@ -268,7 +268,7 @@ class _HomePageContent extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.pets, size: 82, color: Colors.black54),
+              const CatGptLogo(size: 82),
               const SizedBox(height: 18),
               Text(
                 'CatGPT',

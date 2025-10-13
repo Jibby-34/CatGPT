@@ -10,7 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   http: ^1.1.0        # For HTTP requests
-  image_picker: ^0.8.7+4 
+  image_picker: ^0.8.7+4
 
 dev_dependencies:
   flutter_test:
@@ -19,3 +19,5 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icons/catgpt_logo.png
