@@ -6,9 +6,11 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
+import 'package:record/record.dart';
 
 import 'camera_page.dart';
 import 'history_page.dart';
+import 'audio_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -19,14 +21,17 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
   Uint8List? _pickedImageBytes;
+  Uint8List? _recordedAudioBytes;
   int _currentIndex = 1;
   String? _outputText;
   bool _isLoading = false;
 
   List<String> translationHistory = [];
   List<Uint8List?> imageHistory = [];
+  List<Uint8List?> audioHistory = [];
 
   final ImagePicker _picker = ImagePicker();
+  final AudioRecorder _audioRecorder = AudioRecorder();
 
   Future<Uint8List?> pickImage() async {
     try {
@@ -64,6 +69,30 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     await evaluateImage();
   }
 
+  Future<void> _onRecordAudio() async {
+    try {
+      if (await _audioRecorder.hasPermission()) {
+        await _audioRecorder.start(const RecordConfig(), path: 'audio_recording.m4a');
+        // The actual recording will be handled by the AudioPage
+        setState(() {
+          _recordedAudioBytes = null;
+          _outputText = null;
+        });
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Microphone permission denied')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error starting recording: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error starting recording: $e')),
+      );
+    }
+  }
+
   Future<void> evaluateImage() async {
     if (_pickedImageBytes == null) return;
     setState(() => _isLoading = true);
@@ -82,7 +111,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             "parts": [
               {
                 "text":
-                    "Analyze this cat's body language and interpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 3 reasons."
+                    "Analyze this cat's body language and interpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 3 reasons. Example: The sun feels good on my belly, I think I'll stay here. [rolled over, eyes closed, sunshine]. Your response must match exactly the syntax of this example, and should contain no more substance than requested"
               },
               {
                 "inline_data": {
@@ -124,6 +153,95 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
+  Future<Uint8List?> recordAudio() async {
+    try {
+      if (await _audioRecorder.hasPermission()) {
+        final path = await _audioRecorder.stop();
+        if (path != null) {
+          final file = File(path);
+          final bytes = await file.readAsBytes();
+          setState(() {
+            _recordedAudioBytes = bytes;
+            _outputText = null;
+          });
+          return bytes;
+        }
+      } else {
+        if (!mounted) return null;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Microphone permission denied')),
+        );
+      }
+    } catch (e) {
+      debugPrint('recordAudio error: $e');
+      if (!mounted) return null;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error recording audio: $e')),
+      );
+    }
+    return null;
+  }
+
+  Future<void> evaluateAudio() async {
+    if (_recordedAudioBytes == null) return;
+    setState(() => _isLoading = true);
+
+    try {
+      const apiKey = 'AIzaSyAiV17lMotobdGjP9UydikjhgFRXCbzV9w';
+      final url = Uri.parse(
+          'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=$apiKey');
+
+      final headers = {'Content-Type': 'application/json'};
+      final base64Audio = base64Encode(_recordedAudioBytes!);
+
+      final body = jsonEncode({
+        "contents": [
+          {
+            "parts": [
+              {
+                "text":
+                    "Analyze this cat's meow and interpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 3 reasons. Example: I'm hungry and you're taking too long with my dinner! [high pitched meow, persistent tone, following you around]. Your response must match exactly the syntax of this example, and should contain no more substance than requested"
+              },
+              {
+                "inline_data": {
+                  "mime_type": "audio/m4a",
+                  "data": base64Audio
+                }
+              }
+            ]
+          }
+        ]
+      });
+
+      final response = await http.post(url, headers: headers, body: body);
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final text = data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"] as String?;
+        if (text == null) throw Exception('Unexpected response shape.');
+
+        setState(() {
+          _outputText = text;
+          translationHistory.add(text);
+          audioHistory.add(_recordedAudioBytes);
+        });
+      } else {
+        debugPrint('API error ${response.statusCode}: ${response.body}');
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('API Error: ${response.statusCode}')));
+      }
+    } catch (e) {
+      debugPrint('evaluateAudio error: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Error analyzing audio.')));
+    } finally {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -154,13 +272,23 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           if (_isLoading) _buildLoadingOverlay(),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _onTakePhoto,
-        tooltip: 'Take Photo',
-        elevation: 6,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-        child: const Icon(Icons.camera_alt_rounded, size: 28),
-      ),
+      floatingActionButton: _currentIndex == 1
+          ? FloatingActionButton(
+              onPressed: _onTakePhoto,
+              tooltip: 'Take Photo',
+              elevation: 6,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              child: const Icon(Icons.camera_alt_rounded, size: 28),
+            )
+          : _currentIndex == 2
+              ? FloatingActionButton(
+                  onPressed: _onRecordAudio,
+                  tooltip: 'Record Audio',
+                  elevation: 6,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                  child: const Icon(Icons.mic, size: 28),
+                )
+              : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
         color: Colors.white,
@@ -196,13 +324,24 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
               IconButton(
                 icon: Icon(
-                  Icons.history_rounded,
+                  Icons.mic_rounded,
                   size: 28,
                   color: _currentIndex == 2
                       ? theme.colorScheme.primary
                       : Colors.black54,
                 ),
                 onPressed: () => setState(() => _currentIndex = 2),
+                tooltip: 'Audio',
+              ),
+              IconButton(
+                icon: Icon(
+                  Icons.history_rounded,
+                  size: 28,
+                  color: _currentIndex == 3
+                      ? theme.colorScheme.primary
+                      : Colors.black54,
+                ),
+                onPressed: () => setState(() => _currentIndex = 3),
                 tooltip: 'History',
               ),
             ],
@@ -224,10 +363,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   pickImage: pickImage,
                   evaluateImage: evaluateImage,
                 )
-              : HistoryPage(
-                  translationHistory: translationHistory,
-                  imageHistory: imageHistory,
-                ),
+              : _currentIndex == 2
+                  ? AudioPage(
+                      recordedAudioBytes: _recordedAudioBytes,
+                      outputText: _outputText,
+                      recordAudio: recordAudio,
+                      evaluateAudio: evaluateAudio,
+                    )
+                  : HistoryPage(
+                      translationHistory: translationHistory,
+                      imageHistory: imageHistory,
+                      audioHistory: audioHistory,
+                    ),
     );
   }
 
@@ -283,8 +430,7 @@ class _HomePageContent extends StatelessWidget {
               const SizedBox(height: 20),
               ElevatedButton(
                 onPressed: () {
-                  final state = context.findAncestorStateOfType<_HomePageState>();
-                  state?.setState(() => state._currentIndex = 1);
+                  // This will be handled by the parent widget
                 },
                 style: ElevatedButton.styleFrom(
                   shape: RoundedRectangleBorder(
