@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+// ADD BACK FOR ADS import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'pages/home_page.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  // ADD BACK FOR ADS // Initialize Google Mobile Ads SDK
+  // ADD BACK FOR ADS await MobileAds.instance.initialize();
   runApp(const CatTranslatorApp());
 }
 

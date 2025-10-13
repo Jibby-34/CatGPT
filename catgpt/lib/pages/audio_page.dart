@@ -1,7 +1,10 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:record/record.dart';
+import 'package:share_plus/share_plus.dart';
 
 class AudioPage extends StatefulWidget {
   final Uint8List? recordedAudioBytes;
@@ -27,6 +30,7 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
   Duration _recordingDuration = Duration.zero;
   late AnimationController _pulseController;
   late Animation<double> _pulseAnimation;
+  final GlobalKey _storyKey = GlobalKey();
 
   @override
   void initState() {
@@ -132,15 +136,37 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 800;
+        final maxCardWidth = isWide ? 820.0 : 480.0;
+        final vizHeight = isWide
+            ? 260.0
+            : (constraints.maxHeight.isFinite
+                ? (constraints.maxHeight * 0.32).clamp(180.0, 240.0)
+                : 200.0);
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxCardWidth),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+            Offstage(
+              offstage: true,
+              child: RepaintBoundary(
+                key: _storyKey,
+                child: _StoryCanvas(
+                  imageBytes: null,
+                  text: widget.outputText ?? '',
+                  isAudio: true,
+                ),
+              ),
+            ),
             Container(
               width: double.infinity,
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: BoxConstraints(maxWidth: maxCardWidth),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
                 gradient: LinearGradient(
@@ -161,7 +187,7 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
                 children: [
                   // Audio visualization area
                   Container(
-                    height: 200,
+                    height: vizHeight,
                     width: double.infinity,
                     decoration: BoxDecoration(
                       color: _isRecording 
@@ -227,7 +253,7 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
                                 Text(
                                   'Tap to record your cat\'s meow',
                                   style: TextStyle(
-                                    fontSize: 16,
+                                    fontSize: isWide ? 17 : 16,
                                     color: Colors.black54,
                                   ),
                                 ),
@@ -235,7 +261,7 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
                                 Text(
                                   'Up to 10 seconds',
                                   style: TextStyle(
-                                    fontSize: 14,
+                                    fontSize: isWide ? 15 : 14,
                                     color: Colors.black38,
                                   ),
                                 ),
@@ -319,8 +345,8 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Container(
-                                  width: 44,
-                                  height: 44,
+                                  width: isWide ? 50 : 44,
+                                  height: isWide ? 50 : 44,
                                   decoration: BoxDecoration(
                                     color: theme.colorScheme.primary.withOpacity(0.12),
                                     borderRadius: BorderRadius.circular(10),
@@ -331,25 +357,145 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
                                 Expanded(
                                   child: Text(
                                     widget.outputText!,
-                                    style: const TextStyle(fontSize: 16, height: 1.35),
+                                    style: TextStyle(fontSize: isWide ? 18 : 16, height: 1.35),
                                   ),
                                 ),
                                 const SizedBox(width: 6),
-                                IconButton(
-                                  onPressed: () {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                          content: Text('Copied to clipboard (mock)')),
-                                    );
-                                  },
-                                  icon: const Icon(Icons.copy_outlined),
-                                  tooltip: 'Copy',
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    IconButton(
+                                      onPressed: () {
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          const SnackBar(
+                                              content: Text('Copied to clipboard (mock)')),
+                                        );
+                                      },
+                                      icon: const Icon(Icons.copy_outlined),
+                                      tooltip: 'Copy',
+                                    ),
+                                    IconButton(
+                                      onPressed: widget.outputText == null ? null : _shareStory,
+                                      icon: const Icon(Icons.ios_share),
+                                      tooltip: 'Share',
+                                    ),
+                                  ],
                                 ),
                               ],
                             ),
                           )
                         : const SizedBox.shrink(),
                   ),
+                ],
+              ),
+            ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _shareStory() async {
+    try {
+      final boundary = _storyKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+      final pngBytes = byteData.buffer.asUint8List();
+
+      final xfile = XFile.fromData(pngBytes, name: 'catgpt_story.png', mimeType: 'image/png');
+      await Share.shareXFiles([xfile], text: 'CatGPT');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Share failed: $e')),
+      );
+    }
+  }
+}
+
+class _StoryCanvas extends StatelessWidget {
+  final Uint8List? imageBytes;
+  final String text;
+  final bool isAudio;
+
+  const _StoryCanvas({
+    required this.imageBytes,
+    required this.text,
+    required this.isAudio,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 1080,
+      height: 1920,
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF4A148C), Color(0xFF880E4F)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (imageBytes != null)
+              Opacity(
+                opacity: 0.3,
+                child: Image.memory(imageBytes!, fit: BoxFit.cover),
+              ),
+            Container(color: Colors.black.withOpacity(0.25)),
+            Padding(
+              padding: const EdgeInsets.all(64),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(isAudio ? Icons.graphic_eq : Icons.pets, color: Colors.white, size: 56),
+                      const SizedBox(width: 16),
+                      const Text(
+                        'CatGPT',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 54,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.all(28),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.92),
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    child: Text(
+                      text,
+                      style: const TextStyle(
+                        fontSize: 44,
+                        height: 1.25,
+                        color: Colors.black,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: const [
+                      Icon(Icons.mic_none, color: Colors.white70),
+                      SizedBox(width: 8),
+                      Text('Translated from meow with CatGPT', style: TextStyle(color: Colors.white70, fontSize: 26)),
+                    ],
+                  )
                 ],
               ),
             ),

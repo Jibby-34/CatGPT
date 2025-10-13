@@ -1,6 +1,9 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:share_plus/share_plus.dart';
 
 class CameraPage extends StatefulWidget {
   final Uint8List? pickedImageBytes;
@@ -22,6 +25,7 @@ class CameraPage extends StatefulWidget {
 
 class _CameraPageState extends State<CameraPage> {
   bool _showReasoning = false;
+  final GlobalKey _storyKey = GlobalKey();
 
   String get _mainText {
     final text = widget.outputText ?? '';
@@ -43,15 +47,38 @@ class _CameraPageState extends State<CameraPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 24),
-      child: Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 800;
+        final maxCardWidth = isWide ? 820.0 : 480.0;
+        final imageHeight = isWide
+            ? 360.0
+            : (constraints.maxHeight.isFinite
+                ? (constraints.maxHeight * 0.35).clamp(220.0, 340.0)
+                : 300.0);
+        return SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxWidth: maxCardWidth),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+            // Offstage story canvas used for capture
+            Offstage(
+              offstage: true,
+              child: RepaintBoundary(
+                key: _storyKey,
+                child: _StoryCanvas(
+                  imageBytes: widget.pickedImageBytes,
+                  text: widget.outputText ?? '',
+                  isAudio: false,
+                ),
+              ),
+            ),
             Container(
               width: double.infinity,
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: BoxConstraints(maxWidth: maxCardWidth),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
                 gradient: LinearGradient(
@@ -75,7 +102,7 @@ class _CameraPageState extends State<CameraPage> {
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: Container(
-                          height: 300,
+                          height: imageHeight,
                           width: double.infinity,
                           color: Colors.grey[200],
                           child: widget.pickedImageBytes != null
@@ -126,8 +153,8 @@ class _CameraPageState extends State<CameraPage> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Container(
-                                      width: 44,
-                                      height: 44,
+                                  width: isWide ? 50 : 44,
+                                  height: isWide ? 50 : 44,
                                       decoration: BoxDecoration(
                                         color: theme.colorScheme.primary.withOpacity(0.12),
                                         borderRadius: BorderRadius.circular(10),
@@ -140,8 +167,8 @@ class _CameraPageState extends State<CameraPage> {
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
                                           Text(
-                                            _mainText,
-                                            style: const TextStyle(fontSize: 16, height: 1.35),
+                                          _mainText,
+                                          style: TextStyle(fontSize: isWide ? 18 : 16, height: 1.35),
                                           ),
                                           const SizedBox(height: 8),
                                           if (_reasoningText != null)
@@ -167,6 +194,9 @@ class _CameraPageState extends State<CameraPage> {
                                       ),
                                     ),
                                     const SizedBox(width: 6),
+                                Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
                                     IconButton(
                                       onPressed: () {
                                         ScaffoldMessenger.of(context).showSnackBar(
@@ -177,6 +207,13 @@ class _CameraPageState extends State<CameraPage> {
                                       icon: const Icon(Icons.copy_outlined),
                                       tooltip: 'Copy',
                                     ),
+                                    IconButton(
+                                      onPressed: widget.outputText == null ? null : _shareStory,
+                                      icon: const Icon(Icons.ios_share),
+                                      tooltip: 'Share',
+                                    ),
+                                  ],
+                                ),
                                   ],
                                 ),
                               )
@@ -192,7 +229,7 @@ class _CameraPageState extends State<CameraPage> {
                         elevation: 8,
                         color: Colors.transparent,
                         child: Container(
-                          constraints: const BoxConstraints(maxWidth: 320),
+                          constraints: BoxConstraints(maxWidth: isWide ? 420 : 300),
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(12),
@@ -214,7 +251,7 @@ class _CameraPageState extends State<CameraPage> {
                               Expanded(
                                 child: Text(
                                   _reasoningText!,
-                                  style: const TextStyle(fontSize: 14, height: 1.35),
+                                  style: TextStyle(fontSize: isWide ? 15 : 14, height: 1.35),
                                 ),
                               ),
                               const SizedBox(width: 8),
@@ -234,6 +271,117 @@ class _CameraPageState extends State<CameraPage> {
                         ),
                       ),
                     ),
+                ],
+              ),
+            ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _shareStory() async {
+    try {
+      final boundary = _storyKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+      if (boundary == null) return;
+      final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
+      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+      if (byteData == null) return;
+      final pngBytes = byteData.buffer.asUint8List();
+
+      final xfile = XFile.fromData(pngBytes, name: 'catgpt_story.png', mimeType: 'image/png');
+      await Share.shareXFiles([xfile], text: 'CatGPT');
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Share failed: $e')),
+      );
+    }
+  }
+}
+
+class _StoryCanvas extends StatelessWidget {
+  final Uint8List? imageBytes;
+  final String text;
+  final bool isAudio;
+
+  const _StoryCanvas({
+    required this.imageBytes,
+    required this.text,
+    required this.isAudio,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    // 1080x1920 Instagram story aspect
+    return SizedBox(
+      width: 1080,
+      height: 1920,
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+        ),
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            if (imageBytes != null)
+              Opacity(
+                opacity: 0.45,
+                child: Image.memory(imageBytes!, fit: BoxFit.cover),
+              ),
+            Container(color: Colors.black.withOpacity(0.25)),
+            Padding(
+              padding: const EdgeInsets.all(64),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: const [
+                      Icon(Icons.pets, color: Colors.white, size: 56),
+                      SizedBox(width: 16),
+                      Text(
+                        'CatGPT',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 54,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 0.3,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.all(28),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.92),
+                      borderRadius: BorderRadius.circular(28),
+                    ),
+                    child: Text(
+                      text,
+                      style: const TextStyle(
+                        fontSize: 44,
+                        height: 1.25,
+                        color: Colors.black,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    children: const [
+                      Icon(Icons.camera_alt_rounded, color: Colors.white70),
+                      SizedBox(width: 8),
+                      Text('Translated with CatGPT', style: TextStyle(color: Colors.white70, fontSize: 26)),
+                    ],
+                  )
                 ],
               ),
             ),

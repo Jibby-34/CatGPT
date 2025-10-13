@@ -11,9 +11,11 @@ dependencies:
     sdk: flutter
   http: ^1.1.0        # For HTTP requests
   image_picker: ^0.8.7+4
-  record: ^5.0.4      # For audio recording
+  record: ^6.1.0      # For audio recording
   permission_handler: ^11.3.1  # For microphone permissions 
   shared_preferences: ^2.2.2
+  google_mobile_ads: ^5.1.0
+  share_plus: ^12.0.0
 
 
 dev_dependencies:

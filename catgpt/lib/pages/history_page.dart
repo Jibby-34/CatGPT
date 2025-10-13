@@ -24,93 +24,100 @@ class HistoryPage extends StatelessWidget {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: ListView.builder(
-        shrinkWrap: true,
-        physics: const BouncingScrollPhysics(),
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: translationHistory.length,
-        itemBuilder: (context, index) {
-          final len = translationHistory.length;
-          final reverseIndex = len - 1 - index;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 900;
+        final horizontalPadding = isWide ? 28.0 : 12.0;
+        final tileSide = isWide ? 120.0 : 92.0;
 
-          // Guard against length mismatches between lists
-          final safeImageIndex = reverseIndex < imageHistory.length ? reverseIndex : -1;
-          final safeAudioIndex = reverseIndex < audioHistory.length ? reverseIndex : -1;
+        return Padding(
+          padding: EdgeInsets.fromLTRB(horizontalPadding, 12, horizontalPadding, 12),
+          child: ListView.builder(
+            shrinkWrap: true,
+            physics: const BouncingScrollPhysics(),
+            itemCount: translationHistory.length,
+            itemBuilder: (context, index) {
+              final len = translationHistory.length;
+              final reverseIndex = len - 1 - index;
 
-          final translation = translationHistory[reverseIndex];
-          final imageBytes = safeImageIndex >= 0 ? imageHistory[safeImageIndex] : null;
-          final audioBytes = safeAudioIndex >= 0 ? audioHistory[safeAudioIndex] : null;
-          final isAudio = audioBytes != null;
+              final safeImageIndex = reverseIndex < imageHistory.length ? reverseIndex : -1;
+              final safeAudioIndex = reverseIndex < audioHistory.length ? reverseIndex : -1;
 
-          return GestureDetector(
-            onTap: () => _showDetail(context, translation, imageBytes, audioBytes),
-            child: Card(
-              margin: const EdgeInsets.symmetric(vertical: 8),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(14)),
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: isAudio
-                          ? Container(
-                              width: 92,
-                              height: 92,
-                              color: Colors.blue[50],
-                              child: const Icon(Icons.mic, size: 36, color: Colors.blue),
-                            )
-                          : imageBytes != null
-                              ? Image.memory(imageBytes,
-                                  width: 92, height: 92, fit: BoxFit.cover)
-                              : Container(
-                                  width: 92,
-                                  height: 92,
-                                  color: Colors.grey[200],
-                                  child: const Icon(Icons.image, size: 36),
-                                ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
+              final translation = translationHistory[reverseIndex];
+              final imageBytes = safeImageIndex >= 0 ? imageHistory[safeImageIndex] : null;
+              final audioBytes = safeAudioIndex >= 0 ? audioHistory[safeAudioIndex] : null;
+              final isAudio = audioBytes != null;
+
+              return GestureDetector(
+                onTap: () => _showDetail(context, translation, imageBytes, audioBytes),
+                child: Card(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  elevation: 4,
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: isAudio
+                              ? Container(
+                                  width: tileSide,
+                                  height: tileSide,
+                                  color: Colors.blue[50],
+                                  child: const Icon(Icons.mic, size: 36, color: Colors.blue),
+                                )
+                              : imageBytes != null
+                                  ? Image.memory(imageBytes,
+                                      width: tileSide, height: tileSide, fit: BoxFit.cover)
+                                  : Container(
+                                      width: tileSide,
+                                      height: tileSide,
+                                      color: Colors.grey[200],
+                                      child: const Icon(Icons.image, size: 36),
+                                    ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              if (isAudio)
-                                const Icon(Icons.mic, size: 16, color: Colors.blue),
-                              if (isAudio) const SizedBox(width: 4),
-                              Expanded(
-                                child: Text(
-                                  _shortPreview(translation),
-                                  style: const TextStyle(
-                                      fontSize: 16, fontWeight: FontWeight.w600),
-                                ),
+                              Row(
+                                children: [
+                                  if (isAudio)
+                                    const Icon(Icons.mic, size: 16, color: Colors.blue),
+                                  if (isAudio) const SizedBox(width: 4),
+                                  Expanded(
+                                    child: Text(
+                                      _shortPreview(translation),
+                                      style: TextStyle(
+                                          fontSize: isWide ? 17 : 16,
+                                          fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _previewReason(translation),
+                                style: TextStyle(
+                                    fontSize: isWide ? 14 : 13, color: Colors.black54),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          Text(
-                            _previewReason(translation),
-                            style: const TextStyle(
-                                fontSize: 13, color: Colors.black54),
-                          ),
-                        ],
-                      ),
+                        ),
+                        const Icon(Icons.chevron_right_rounded,
+                            color: Colors.black38),
+                      ],
                     ),
-                    const Icon(Icons.chevron_right_rounded,
-                        color: Colors.black38),
-                  ],
+                  ),
                 ),
-              ),
-            ),
-          );
-        },
-      ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
