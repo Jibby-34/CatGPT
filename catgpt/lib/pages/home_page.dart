@@ -6,7 +6,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:record/record.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 // ADD BACK FOR ADS import 'package:google_mobile_ads/google_mobile_ads.dart';
 
@@ -36,7 +35,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   List<Uint8List?> audioHistory = [];
 
   final ImagePicker _picker = ImagePicker();
-  final AudioRecorder _audioRecorder = AudioRecorder();
   SharedPreferences? _prefs;
 
   @override
@@ -48,15 +46,38 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _loadPrefsAndHistory() async {
-    _prefs = await SharedPreferences.getInstance();
-    final texts = _prefs!.getStringList('translationHistory') ?? [];
-    final imagesB64 = _prefs!.getStringList('imageHistory') ?? [];
-    final audiosB64 = _prefs!.getStringList('audioHistory') ?? [];
-    setState(() {
-      translationHistory = texts;
-      imageHistory = imagesB64.map((s) => s.isEmpty ? null : base64Decode(s)).toList();
-      audioHistory = audiosB64.map((s) => s.isEmpty ? null : base64Decode(s)).toList();
-    });
+    try {
+      _prefs = await SharedPreferences.getInstance();
+      final texts = _prefs!.getStringList('translationHistory') ?? [];
+      final imagesB64 = _prefs!.getStringList('imageHistory') ?? [];
+      final audiosB64 = _prefs!.getStringList('audioHistory') ?? [];
+      
+      if (mounted) {
+        setState(() {
+          translationHistory = texts;
+          imageHistory = imagesB64.map((s) {
+            if (s.isEmpty) return null;
+            try {
+              return base64Decode(s);
+            } catch (e) {
+              debugPrint('Error decoding image: $e');
+              return null;
+            }
+          }).toList();
+          audioHistory = audiosB64.map((s) {
+            if (s.isEmpty) return null;
+            try {
+              return base64Decode(s);
+            } catch (e) {
+              debugPrint('Error decoding audio: $e');
+              return null;
+            }
+          }).toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading preferences: $e');
+    }
   }
 
   Future<void> _saveHistory() async {
@@ -166,29 +187,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     await evaluateImage();
   }
 
-  Future<void> _onRecordAudio() async {
-    try {
-      if (await _audioRecorder.hasPermission()) {
-        // Navigate to Audio tab and let AudioPage manage recording
-        setState(() {
-          _currentIndex = 2;
-          _recordedAudioBytes = null;
-          _outputText = null;
-        });
-      } else {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Microphone permission denied')),
-        );
-      }
-    } catch (e) {
-      debugPrint('Error starting recording: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error starting recording: $e')),
-      );
-    }
-  }
 
   Future<void> evaluateImage() async {
     if (_pickedImageBytes == null) return;
@@ -334,8 +332,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
+        centerTitle: true,
         title: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: const [
             CatGptLogo(size: 35),
             SizedBox(width: 8),
@@ -541,7 +540,6 @@ class _HomePageContent extends StatelessWidget {
   final List<Uint8List?> recentAudios;
 
   const _HomePageContent({
-    super.key,
     required this.onOpenCamera,
     required this.onOpenAudio,
     required this.onOpenHistory,
@@ -586,7 +584,6 @@ class _HomePageContent extends StatelessWidget {
       ),
     ];
 
-    final recent = _buildRecent(context);
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -597,7 +594,7 @@ class _HomePageContent extends StatelessWidget {
         // Grid size: 1 row on wide (4 columns), 2 rows on narrow (2 columns)
         final crossAxisCount = isWide ? 4 : 2;
         final rows = (actions.length / crossAxisCount).ceil();
-        final gridHeight = isWide ? 130.0 : (rows == 2 ? 230.0 : 120.0);
+        final gridHeight = isWide ? 150.0 : (rows == 2 ? 280.0 : 150.0);
 
         // Recent items: cap to 2 to avoid scroll
         final maxRecent = 2;
@@ -609,33 +606,36 @@ class _HomePageContent extends StatelessWidget {
                 .toList()
             : const <int>[];
 
-        return Center(
+        return SingleChildScrollView(
           child: Padding(
             padding: EdgeInsets.fromLTRB(horizontalPadding, topPadding, horizontalPadding, 12),
             child: Column(
-              mainAxisSize: MainAxisSize.max,
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    CatGptLogo(size: isWide ? 72 : 60),
-                  ],
+                // Centered logo banner
+                Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      CatGptLogo(size: isWide ? 72 : 60),
+                      const SizedBox(height: 8),
+                      Text(
+                        'CatGPT',
+                        textAlign: TextAlign.center,
+                        style: (isWide ? theme.textTheme.headlineLarge : theme.textTheme.headlineMedium)
+                            ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 0.2),
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        'Translate your cat\'s vibes from photos or meows — fast.',
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  'CatGPT',
-                  textAlign: TextAlign.center,
-                  style: (isWide ? theme.textTheme.headlineLarge : theme.textTheme.headlineMedium)
-                      ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 0.2),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Translate your cat\'s vibes from photos or meows — fast.',
-                  textAlign: TextAlign.center,
-                  style: theme.textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 14),
+                const SizedBox(height: 20),
                 SizedBox(
                   height: gridHeight,
                   child: GridView.builder(
@@ -646,14 +646,15 @@ class _HomePageContent extends StatelessWidget {
                       crossAxisCount: crossAxisCount,
                       mainAxisSpacing: 12,
                       crossAxisSpacing: 12,
-                      childAspectRatio: isWide ? 2.2 : 1.6,
+                      childAspectRatio: isWide ? 1.8 : 1.2,
                     ),
                     itemCount: actions.length,
                     itemBuilder: (context, index) => actions[index],
                   ),
                 ),
-                const SizedBox(height: 12),
-                if (hasRecent)
+                const SizedBox(height: 24),
+                if (hasRecent) ...[
+                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
@@ -665,7 +666,7 @@ class _HomePageContent extends StatelessWidget {
                       ),
                     ],
                   ),
-                if (hasRecent)
+                  const SizedBox(height: 12),
                   ...recentItems.map((idx) {
                     final text = recentTranslations[idx];
                     final img = idx < recentImages.length ? recentImages[idx] : null;
@@ -713,7 +714,10 @@ class _HomePageContent extends StatelessWidget {
                       ),
                     );
                   }),
-                if (!hasRecent)
+                  const SizedBox(height: 16),
+                ],
+                if (!hasRecent) ...[
+                  const SizedBox(height: 8),
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
@@ -736,6 +740,8 @@ class _HomePageContent extends StatelessWidget {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 16),
+                ],
               ],
             ),
           ),
@@ -744,91 +750,6 @@ class _HomePageContent extends StatelessWidget {
     );
   }
 
-  Widget _buildRecent(BuildContext context) {
-    final theme = Theme.of(context);
-    if (recentTranslations.isEmpty) {
-      return Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 8,
-              offset: const Offset(0, 6),
-            )
-          ],
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: const [
-            Icon(Icons.hourglass_empty_outlined),
-            SizedBox(width: 10),
-            Expanded(child: Text('No recent translations yet. Try a photo or meow!')),
-          ],
-        ),
-      );
-    }
-
-    final len = recentTranslations.length;
-    final items = List.generate(len, (i) => i).reversed.take(3).toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Recent', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 10),
-        ...items.map((idx) {
-          final text = recentTranslations[idx];
-          final img = idx < recentImages.length ? recentImages[idx] : null;
-          final aud = idx < recentAudios.length ? recentAudios[idx] : null;
-          final isAudio = aud != null && (aud.isNotEmpty);
-          return Container(
-            margin: const EdgeInsets.only(bottom: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 8,
-                  offset: const Offset(0, 6),
-                )
-              ],
-            ),
-            padding: const EdgeInsets.all(12),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: isAudio ? Colors.deepPurple.withOpacity(0.12) : Colors.blueGrey.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(10),
-                    image: !isAudio && img != null
-                        ? DecorationImage(image: MemoryImage(img), fit: BoxFit.cover)
-                        : null,
-                  ),
-                  child: (!isAudio && img != null) ? null : Icon(isAudio ? Icons.mic_rounded : Icons.pets, size: 24),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    text,
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(height: 1.3),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
 }
 
 class _ActionCard extends StatelessWidget {
@@ -863,6 +784,7 @@ class _ActionCard extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Container(
               width: 42,
@@ -873,10 +795,28 @@ class _ActionCard extends StatelessWidget {
               ),
               child: Icon(icon, color: Colors.black87),
             ),
-            const Spacer(),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 2),
-            Text(subtitle, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+            const SizedBox(height: 8),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    title, 
+                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle, 
+                    style: const TextStyle(color: Colors.black54, fontSize: 11),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),

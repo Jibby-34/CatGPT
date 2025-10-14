@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-// ADD BACK FOR ADS import 'package:google_mobile_ads/google_mobile_ads.dart';
+// import 'package:google_mobile_ads/google_mobile_ads.dart';  // Temporarily disabled
 import 'pages/home_page.dart';
 
 Future<void> main() async {

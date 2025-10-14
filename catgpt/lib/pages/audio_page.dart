@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -66,7 +68,11 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
         return;
       }
       if (await _audioRecorder.hasPermission()) {
-        await _audioRecorder.start(const RecordConfig(), path: 'audio_recording.m4a');
+        // Get the temporary directory for audio files
+        final Directory tempDir = await getTemporaryDirectory();
+        final String audioPath = '${tempDir.path}/audio_recording_${DateTime.now().millisecondsSinceEpoch}.m4a';
+        
+        await _audioRecorder.start(const RecordConfig(), path: audioPath);
         setState(() {
           _isRecording = true;
           _recordingDuration = Duration.zero;
@@ -400,15 +406,38 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
 
   Future<void> _shareStory() async {
     try {
+      // Wait for the widget to be fully rendered
+      await Future.delayed(const Duration(milliseconds: 100));
+      
       final boundary = _storyKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) return;
-      final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return;
-      final pngBytes = byteData.buffer.asUint8List();
+      if (boundary == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to capture image for sharing')),
+        );
+        return;
+      }
+      
+      // Wait for the next frame to ensure all rendering is complete
+      await Future.delayed(const Duration(milliseconds: 50));
+      
+      // Use a more robust approach - wait for the paint cycle to complete
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        try {
+          final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
+          final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+          if (byteData == null) return;
+          final pngBytes = byteData.buffer.asUint8List();
 
-      final xfile = XFile.fromData(pngBytes, name: 'catgpt_story.png', mimeType: 'image/png');
-      await Share.shareXFiles([xfile], text: 'CatGPT');
+          final xfile = XFile.fromData(pngBytes, name: 'catgpt_story.png', mimeType: 'image/png');
+          await Share.shareXFiles([xfile], text: 'CatGPT');
+        } catch (e) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Share failed: $e')),
+          );
+        }
+      });
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

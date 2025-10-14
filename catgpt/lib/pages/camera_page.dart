@@ -285,14 +285,30 @@ class _CameraPageState extends State<CameraPage> {
 
   Future<void> _shareStory() async {
     try {
+      // ensure widget tree is done painting
+      await WidgetsBinding.instance.endOfFrame;
+
       final boundary = _storyKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) return;
+      if (boundary == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Unable to capture image for sharing')),
+        );
+        return;
+      }
+
+      // Wait one more frame to be extra safe
+      await WidgetsBinding.instance.endOfFrame;
+
+      // Capture image at 2× resolution
       final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
       if (byteData == null) return;
-      final pngBytes = byteData.buffer.asUint8List();
 
-      final xfile = XFile.fromData(pngBytes, name: 'catgpt_story.png', mimeType: 'image/png');
+      final pngBytes = byteData.buffer.asUint8List();
+      final xfile = XFile.fromData(pngBytes,
+          name: 'catgpt_story.png', mimeType: 'image/png');
+
       await Share.shareXFiles([xfile], text: 'CatGPT');
     } catch (e) {
       if (!mounted) return;
