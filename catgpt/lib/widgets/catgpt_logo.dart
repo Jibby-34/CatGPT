@@ -8,19 +8,25 @@ class CatGptLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: size,
-      height: size,
+    return ClipRect(
       child: Image.asset(
         'assets/icons/catgpt_logo.png',
         width: size,
         height: size,
         color: color,
         fit: BoxFit.contain,
-        colorBlendMode: color != null ? BlendMode.srcIn : BlendMode.srcATop,
+        colorBlendMode: color != null ? BlendMode.srcIn : null,
         filterQuality: FilterQuality.high,
         isAntiAlias: true,
         excludeFromSemantics: true,
+        frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
+          if (wasSynchronouslyLoaded) return child;
+          return AnimatedOpacity(
+            opacity: frame == null ? 0 : 1,
+            duration: const Duration(milliseconds: 200),
+            child: child,
+          );
+        },
       ),
     );
   }
