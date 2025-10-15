@@ -206,7 +206,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             "parts": [
               {
                 "text":
-                    "Analyze this cat's body language and interpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 3 reasons. Example: The sun feels good on my belly, I think I'll stay here. [rolled over, eyes closed, sunshine]. Your response must match exactly the syntax of this example, and should contain no more substance than requested"
+                    "Analyze the subject'sbody language and interpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). The subject should be a cat. If the subject is not a cat, simply state 'No cat detected!'. Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 3 reasons, all enclosed in the same braces. Your response should only contain one set of [] total. Example Phrase: The sun feels good on my belly, I think I'll stay here. [rolled over, eyes closed, sunshine]"
               },
               {
                 "inline_data": {

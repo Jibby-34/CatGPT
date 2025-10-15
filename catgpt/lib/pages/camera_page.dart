@@ -47,276 +47,293 @@ class _CameraPageState extends State<CameraPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 800;
-        final maxCardWidth = isWide ? 820.0 : 480.0;
-        final imageHeight = isWide
-            ? 360.0
-            : (constraints.maxHeight.isFinite
-                ? (constraints.maxHeight * 0.35).clamp(220.0, 340.0)
-                : 300.0);
-        return SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: maxCardWidth),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-            // Offstage story canvas used for capture
-            Offstage(
-              offstage: true,
-              child: RepaintBoundary(
-                key: _storyKey,
-                child: _StoryCanvas(
-                  imageBytes: widget.pickedImageBytes,
-                  text: widget.outputText ?? '',
-                  isAudio: false,
-                ),
-              ),
-            ),
-            Container(
-              width: double.infinity,
-              constraints: BoxConstraints(maxWidth: maxCardWidth),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(18),
-                gradient: LinearGradient(
-                  colors: [Colors.white.withOpacity(0.9), const Color(0xFFEFF3FF)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 12,
-                    offset: const Offset(0, 8),
-                  )
-                ],
-              ),
-              padding: const EdgeInsets.all(14),
-              child: Stack(
-                children: [
-                  Column(
-                    children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Container(
-                          height: imageHeight,
-                          width: double.infinity,
-                          color: Colors.grey[200],
-                          child: widget.pickedImageBytes != null
-                              ? Image.memory(widget.pickedImageBytes!, fit: BoxFit.cover)
-                              : const Center(
-                                  child: Icon(Icons.pets, size: 92, color: Colors.black26),
-                                ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text('Tap the camera button to take a photo'),
-                          if (kIsWeb)
-                            TextButton.icon(
-                              onPressed: () async {
-                                final bytes = await widget.pickImage();
-                                if (bytes == null) return;
-                                await widget.evaluateImage();
-                              },
-                              icon: const Icon(Icons.upload_file_outlined),
-                              label: const Text('Upload'),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 6),
-                      AnimatedSize(
-                        duration: const Duration(milliseconds: 250),
-                        child: widget.outputText != null
-                            ? Container(
-                                width: double.infinity,
-                                decoration: BoxDecoration(
-                                  color: Colors.white,
-                                  borderRadius: BorderRadius.circular(14),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.04),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 6),
-                                    )
-                                  ],
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 16, vertical: 12),
-                                margin: const EdgeInsets.only(top: 12),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                  width: isWide ? 50 : 44,
-                                  height: isWide ? 50 : 44,
-                                      decoration: BoxDecoration(
-                                        color: theme.colorScheme.primary.withOpacity(0.12),
-                                        borderRadius: BorderRadius.circular(10),
-                                      ),
-                                      child: const Icon(Icons.pets, size: 26),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(
-                                          _mainText,
-                                          style: TextStyle(fontSize: isWide ? 18 : 16, height: 1.35),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          if (_reasoningText != null)
-                                            Align(
-                                              alignment: Alignment.centerLeft,
-                                              child: TextButton.icon(
-                                                onPressed: () {
-                                                  setState(() {
-                                                    _showReasoning = !_showReasoning;
-                                                  });
-                                                },
-                                                icon: Icon(
-                                                  _showReasoning
-                                                      ? Icons.visibility_off_outlined
-                                                      : Icons.visibility_outlined,
-                                                ),
-                                                label: Text(
-                                                  _showReasoning ? 'Hide Reasoning' : 'Show Reasoning',
-                                                ),
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      onPressed: () {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          const SnackBar(
-                                              content: Text('Copied to clipboard (mock)')),
-                                        );
-                                      },
-                                      icon: const Icon(Icons.copy_outlined),
-                                      tooltip: 'Copy',
-                                    ),
-                                    IconButton(
-                                      onPressed: widget.outputText == null ? null : _shareStory,
-                                      icon: const Icon(Icons.ios_share),
-                                      tooltip: 'Share',
-                                    ),
-                                  ],
-                                ),
-                                  ],
-                                ),
-                              )
-                            : const SizedBox.shrink(),
-                      ),
-                    ],
+    return LayoutBuilder(builder: (context, constraints) {
+      final isWide = constraints.maxWidth >= 800;
+      final maxCardWidth = isWide ? 820.0 : 480.0;
+      final imageHeight = isWide
+          ? 360.0
+          : (constraints.maxHeight.isFinite
+              ? (constraints.maxHeight * 0.35).clamp(220.0, 340.0)
+              : 300.0);
+
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxCardWidth),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Hidden share canvas
+                Offstage(
+                  offstage: true,
+                  child: RepaintBoundary(
+                    key: _storyKey,
+                    child: _StoryCanvas(
+                      imageBytes: widget.pickedImageBytes,
+                      text: widget.outputText ?? '',
+                      isAudio: false,
+                    ),
                   ),
-                  if (_showReasoning && _reasoningText != null)
-                    Positioned(
-                      right: 12,
-                      bottom: 12,
-                      child: Material(
-                        elevation: 8,
-                        color: Colors.transparent,
-                        child: Container(
-                          constraints: BoxConstraints(maxWidth: isWide ? 420 : 300),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.08),
-                                blurRadius: 12,
-                                offset: const Offset(0, 8),
-                              )
-                            ],
-                            border: Border.all(color: theme.colorScheme.primary.withOpacity(0.12)),
-                          ),
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(Icons.lightbulb_outline, color: theme.colorScheme.primary),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _reasoningText!,
-                                  style: TextStyle(fontSize: isWide ? 15 : 14, height: 1.35),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              InkWell(
-                                onTap: () {
-                                  setState(() {
-                                    _showReasoning = false;
-                                  });
-                                },
-                                child: const Padding(
-                                  padding: EdgeInsets.all(4.0),
-                                  child: Icon(Icons.close, size: 18),
-                                ),
-                              ),
-                            ],
-                          ),
+                ),
+                _buildMainCard(theme, maxCardWidth, imageHeight, isWide),
+              ],
+            ),
+          ),
+        ),
+      );
+    });
+  }
+
+  Widget _buildMainCard(
+      ThemeData theme, double maxCardWidth, double imageHeight, bool isWide) {
+    return Container(
+      width: double.infinity,
+      constraints: BoxConstraints(maxWidth: maxCardWidth),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: LinearGradient(
+          colors: [Colors.white.withOpacity(0.9), const Color(0xFFEFF3FF)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 8),
+          )
+        ],
+      ),
+      padding: const EdgeInsets.all(14),
+      child: Stack(
+        children: [
+          Column(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Container(
+                  height: imageHeight,
+                  width: double.infinity,
+                  color: Colors.grey[200],
+                  child: widget.pickedImageBytes != null
+                      ? Image.memory(widget.pickedImageBytes!, fit: BoxFit.cover)
+                      : const Center(
+                          child: Icon(Icons.pets, size: 92, color: Colors.black26),
                         ),
-                      ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Tap the camera button to take a photo'),
+                  if (kIsWeb)
+                    TextButton.icon(
+                      onPressed: () async {
+                        final bytes = await widget.pickImage();
+                        if (bytes == null) return;
+                        await widget.evaluateImage();
+                      },
+                      icon: const Icon(Icons.upload_file_outlined),
+                      label: const Text('Upload'),
                     ),
                 ],
               ),
+              const SizedBox(height: 6),
+              if (widget.outputText != null)
+                _buildOutputCard(theme, isWide),
+            ],
+          ),
+          if (_showReasoning && _reasoningText != null)
+            _buildReasoningPopup(theme, isWide),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildOutputCard(ThemeData theme, bool isWide) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 6),
+          )
+        ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      margin: const EdgeInsets.only(top: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: isWide ? 50 : 44,
+            height: isWide ? 50 : 44,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(10),
             ),
-                ],
-              ),
+            child: const Icon(Icons.pets, size: 26),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_mainText,
+                    style: TextStyle(fontSize: isWide ? 18 : 16, height: 1.35)),
+                const SizedBox(height: 8),
+                if (_reasoningText != null)
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _showReasoning = !_showReasoning;
+                        });
+                      },
+                      icon: Icon(
+                        _showReasoning
+                            ? Icons.visibility_off_outlined
+                            : Icons.visibility_outlined,
+                      ),
+                      label: Text(_showReasoning
+                          ? 'Hide Reasoning'
+                          : 'Show Reasoning'),
+                    ),
+                  ),
+              ],
             ),
           ),
-        );
-      },
+          const SizedBox(width: 6),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Copied to clipboard (mock)')),
+                  );
+                },
+                icon: const Icon(Icons.copy_outlined),
+                tooltip: 'Copy',
+              ),
+              IconButton(
+                onPressed: _shareStory,
+                icon: const Icon(Icons.ios_share),
+                tooltip: 'Share',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReasoningPopup(ThemeData theme, bool isWide) {
+    return Positioned(
+      right: 12,
+      bottom: 12,
+      child: Material(
+        elevation: 8,
+        color: Colors.transparent,
+        child: Container(
+          constraints: BoxConstraints(maxWidth: isWide ? 420 : 300),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.08),
+                blurRadius: 12,
+                offset: const Offset(0, 8),
+              )
+            ],
+            border: Border.all(
+                color: theme.colorScheme.primary.withOpacity(0.12)),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.lightbulb_outline, color: theme.colorScheme.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _reasoningText!,
+                  style: TextStyle(fontSize: isWide ? 15 : 14, height: 1.35),
+                ),
+              ),
+              const SizedBox(width: 8),
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _showReasoning = false;
+                  });
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(4.0),
+                  child: Icon(Icons.close, size: 18),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
   Future<void> _shareStory() async {
     try {
-      // ensure widget tree is done painting
+      // 🔹 Wait for all frames to finish painting before capture
+      await Future.delayed(const Duration(milliseconds: 150));
       await WidgetsBinding.instance.endOfFrame;
 
-      final boundary = _storyKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) {
+      // 🔹 Find the boundary for the story widget
+      final renderObject = _storyKey.currentContext?.findRenderObject();
+      if (renderObject == null || renderObject is! RenderRepaintBoundary) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Unable to capture image for sharing')),
+          const SnackBar(content: Text('Story not ready to share — please try again.')),
         );
         return;
       }
 
-      // Wait one more frame to be extra safe
-      await WidgetsBinding.instance.endOfFrame;
+      // 🔹 Double-check that it’s painted (avoid debugNeedsPaint issue)
+      if (renderObject.debugNeedsPaint) {
+        await Future.delayed(const Duration(milliseconds: 100));
+        await WidgetsBinding.instance.endOfFrame;
+      }
 
-      // Capture image at 2× resolution
-      final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
+      // 🔹 Capture the widget as image
+      final ui.Image image = await renderObject.toImage(pixelRatio: 3.0);
       final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) return;
+      if (byteData == null) {
+        throw Exception('Failed to convert to image bytes');
+      }
 
+      // 🔹 Convert to PNG and share
       final pngBytes = byteData.buffer.asUint8List();
-      final xfile = XFile.fromData(pngBytes,
-          name: 'catgpt_story.png', mimeType: 'image/png');
+      final file = XFile.fromData(
+        pngBytes,
+        name: 'catgpt_result.png',
+        mimeType: 'image/png',
+      );
 
-      await Share.shareXFiles([xfile], text: 'CatGPT');
+      await Share.shareXFiles([file], text: 'Check out my CatGPT translation 🐾');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Share failed: $e')),
+        SnackBar(content: Text('Failed to share: $e')),
       );
     }
   }
+
 }
 
 class _StoryCanvas extends StatelessWidget {
@@ -332,7 +349,6 @@ class _StoryCanvas extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 1080x1920 Instagram story aspect
     return SizedBox(
       width: 1080,
       height: 1920,
@@ -395,9 +411,11 @@ class _StoryCanvas extends StatelessWidget {
                     children: const [
                       Icon(Icons.camera_alt_rounded, color: Colors.white70),
                       SizedBox(width: 8),
-                      Text('Translated with CatGPT', style: TextStyle(color: Colors.white70, fontSize: 26)),
+                      Text('Translated with CatGPT',
+                          style:
+                              TextStyle(color: Colors.white70, fontSize: 26)),
                     ],
-                  )
+                  ),
                 ],
               ),
             ),
