@@ -1,8 +1,10 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:record/record.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -66,7 +68,11 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
         return;
       }
       if (await _audioRecorder.hasPermission()) {
-        await _audioRecorder.start(const RecordConfig(), path: 'audio_recording.m4a');
+        // Get the temporary directory for audio recording
+        final Directory tempDir = await getTemporaryDirectory();
+        final String audioPath = '${tempDir.path}/audio_recording.m4a';
+        
+        await _audioRecorder.start(const RecordConfig(), path: audioPath);
         setState(() {
           _isRecording = true;
           _recordingDuration = Duration.zero;
