@@ -1,23 +1,52 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 // ADD BACK FOR ADS import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'pages/home_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
   // ADD BACK FOR ADS // Initialize Google Mobile Ads SDK
   // ADD BACK FOR ADS await MobileAds.instance.initialize();
-  runApp(const CatTranslatorApp());
+
+  // Load saved theme mode before app starts
+  final prefs = await SharedPreferences.getInstance();
+  final isDarkMode = prefs.getBool('isDarkMode') ?? false;
+
+  runApp(CatTranslatorApp(isDarkMode: isDarkMode));
 }
 
-class CatTranslatorApp extends StatelessWidget {
-  const CatTranslatorApp({super.key});
+class CatTranslatorApp extends StatefulWidget {
+  final bool isDarkMode;
+  const CatTranslatorApp({super.key, required this.isDarkMode});
+
+  @override
+  State<CatTranslatorApp> createState() => _CatTranslatorAppState();
+}
+
+class _CatTranslatorAppState extends State<CatTranslatorApp> {
+  late bool _isDarkMode;
+
+  @override
+  void initState() {
+    super.initState();
+    _isDarkMode = widget.isDarkMode;
+  }
+
+  void _toggleTheme(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('isDarkMode', value);
+    setState(() => _isDarkMode = value);
+  }
 
   @override
   Widget build(BuildContext context) {
     final seed = Colors.indigo;
+
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'CatGPT',
+      themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -33,7 +62,25 @@ class CatTranslatorApp extends StatelessWidget {
           foregroundColor: Colors.black87,
         ),
       ),
-      home: const HomePage(),
+      darkTheme: ThemeData(
+        useMaterial3: true,
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: seed,
+          brightness: Brightness.dark,
+          secondary: Colors.tealAccent.shade700,
+        ),
+        scaffoldBackgroundColor: const Color(0xFF121212),
+        appBarTheme: const AppBarTheme(
+          centerTitle: true,
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          foregroundColor: Colors.white,
+        ),
+      ),
+      home: HomePage(
+        isDarkMode: _isDarkMode,
+        onThemeChanged: _toggleTheme,
+      ),
     );
   }
 }

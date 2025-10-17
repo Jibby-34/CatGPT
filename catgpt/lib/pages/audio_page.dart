@@ -170,13 +170,15 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(18),
                 gradient: LinearGradient(
-                  colors: [Colors.white.withOpacity(0.9), const Color(0xFFEFF3FF)],
+                  colors: theme.brightness == Brightness.dark
+                      ? [theme.colorScheme.surface.withOpacity(0.9), theme.colorScheme.surfaceVariant.withOpacity(0.5)]
+                      : [Colors.white.withOpacity(0.9), const Color(0xFFEFF3FF)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
+                    color: theme.shadowColor.withOpacity(0.1),
                     blurRadius: 12,
                     offset: const Offset(0, 8),
                   )
@@ -192,7 +194,7 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
                     decoration: BoxDecoration(
                       color: _isRecording 
                           ? theme.colorScheme.primary.withOpacity(0.1)
-                          : Colors.grey[200],
+                          : (theme.brightness == Brightness.dark ? theme.colorScheme.surfaceVariant : Colors.grey[200]),
                       borderRadius: BorderRadius.circular(12),
                       border: _isRecording 
                           ? Border.all(
@@ -247,14 +249,14 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
                                 Icon(
                                   Icons.mic_none,
                                   size: 64,
-                                  color: Colors.black26,
+                                  color: theme.brightness == Brightness.dark ? Colors.white38 : Colors.black26,
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
                                   'Tap to record your cat\'s meow',
                                   style: TextStyle(
                                     fontSize: isWide ? 17 : 16,
-                                    color: Colors.black54,
+                                    color: theme.brightness == Brightness.dark ? Colors.white70 : Colors.black54,
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -262,7 +264,7 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
                                   'Up to 10 seconds',
                                   style: TextStyle(
                                     fontSize: isWide ? 15 : 14,
-                                    color: Colors.black38,
+                                    color: theme.brightness == Brightness.dark ? Colors.white60 : Colors.black38,
                                   ),
                                 ),
                               ],
@@ -277,6 +279,9 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
                         _isRecording 
                             ? 'Recording in progress...'
                             : 'Hold the record button to start',
+                        style: TextStyle(
+                          color: theme.brightness == Brightness.dark ? Colors.white70 : Colors.black87,
+                        ),
                       ),
                       if (widget.recordedAudioBytes != null)
                         TextButton.icon(
@@ -328,11 +333,11 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
                         ? Container(
                             width: double.infinity,
                             decoration: BoxDecoration(
-                              color: Colors.white,
+                              color: theme.colorScheme.surface,
                               borderRadius: BorderRadius.circular(14),
                               boxShadow: [
                                 BoxShadow(
-                                  color: Colors.black.withOpacity(0.04),
+                                  color: theme.shadowColor.withOpacity(0.1),
                                   blurRadius: 8,
                                   offset: const Offset(0, 6),
                                 )
@@ -348,16 +353,26 @@ class _AudioPageState extends State<AudioPage> with TickerProviderStateMixin {
                                   width: isWide ? 50 : 44,
                                   height: isWide ? 50 : 44,
                                   decoration: BoxDecoration(
-                                    color: theme.colorScheme.primary.withOpacity(0.12),
+                                    color: theme.colorScheme.primary.withOpacity(
+                                      theme.brightness == Brightness.dark ? 0.2 : 0.12
+                                    ),
                                     borderRadius: BorderRadius.circular(10),
                                   ),
-                                  child: const Icon(Icons.pets, size: 26),
+                                  child: Icon(
+                                    Icons.pets, 
+                                    size: 26,
+                                    color: theme.brightness == Brightness.dark ? Colors.white70 : Colors.black87,
+                                  ),
                                 ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Text(
                                     widget.outputText!,
-                                    style: TextStyle(fontSize: isWide ? 18 : 16, height: 1.35),
+                                    style: TextStyle(
+                                      fontSize: isWide ? 18 : 16, 
+                                      height: 1.35,
+                                      color: theme.colorScheme.onSurface,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(width: 6),

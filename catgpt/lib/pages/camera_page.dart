@@ -87,19 +87,22 @@ class _CameraPageState extends State<CameraPage> {
 
   Widget _buildMainCard(
       ThemeData theme, double maxCardWidth, double imageHeight, bool isWide) {
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       constraints: BoxConstraints(maxWidth: maxCardWidth),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(18),
         gradient: LinearGradient(
-          colors: [Colors.white.withOpacity(0.9), const Color(0xFFEFF3FF)],
+          colors: isDark 
+              ? [theme.colorScheme.surface.withOpacity(0.9), theme.colorScheme.surfaceVariant.withOpacity(0.5)]
+              : [Colors.white.withOpacity(0.9), const Color(0xFFEFF3FF)],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.06),
+            color: theme.shadowColor.withOpacity(0.1),
             blurRadius: 12,
             offset: const Offset(0, 8),
           )
@@ -115,11 +118,15 @@ class _CameraPageState extends State<CameraPage> {
                 child: Container(
                   height: imageHeight,
                   width: double.infinity,
-                  color: Colors.grey[200],
+                  color: isDark ? theme.colorScheme.surfaceVariant : Colors.grey[200],
                   child: widget.pickedImageBytes != null
                       ? Image.memory(widget.pickedImageBytes!, fit: BoxFit.cover)
-                      : const Center(
-                          child: Icon(Icons.pets, size: 92, color: Colors.black26),
+                      : Center(
+                          child: Icon(
+                            Icons.pets, 
+                            size: 92, 
+                            color: isDark ? Colors.white38 : Colors.black26,
+                          ),
                         ),
                 ),
               ),
@@ -127,7 +134,12 @@ class _CameraPageState extends State<CameraPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Tap the camera button to take a photo'),
+                  Text(
+                    'Tap the camera button to take a photo',
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.black87,
+                    ),
+                  ),
                   if (kIsWeb)
                     TextButton.icon(
                       onPressed: () async {
@@ -153,14 +165,15 @@ class _CameraPageState extends State<CameraPage> {
   }
 
   Widget _buildOutputCard(ThemeData theme, bool isWide) {
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
       width: double.infinity,
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: theme.shadowColor.withOpacity(0.1),
             blurRadius: 8,
             offset: const Offset(0, 6),
           )
@@ -175,18 +188,28 @@ class _CameraPageState extends State<CameraPage> {
             width: isWide ? 50 : 44,
             height: isWide ? 50 : 44,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.12),
+              color: theme.colorScheme.primary.withOpacity(isDark ? 0.2 : 0.12),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: const Icon(Icons.pets, size: 26),
+            child: Icon(
+              Icons.pets, 
+              size: 26,
+              color: isDark ? Colors.white70 : Colors.black87,
+            ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(_mainText,
-                    style: TextStyle(fontSize: isWide ? 18 : 16, height: 1.35)),
+                Text(
+                  _mainText,
+                  style: TextStyle(
+                    fontSize: isWide ? 18 : 16, 
+                    height: 1.35,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
                 const SizedBox(height: 8),
                 if (_reasoningText != null)
                   Align(
@@ -236,6 +259,7 @@ class _CameraPageState extends State<CameraPage> {
   }
 
   Widget _buildReasoningPopup(ThemeData theme, bool isWide) {
+    final isDark = theme.brightness == Brightness.dark;
     return Positioned(
       right: 12,
       bottom: 12,
@@ -245,17 +269,17 @@ class _CameraPageState extends State<CameraPage> {
         child: Container(
           constraints: BoxConstraints(maxWidth: isWide ? 420 : 300),
           decoration: BoxDecoration(
-            color: Colors.white,
+            color: theme.colorScheme.surface,
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.08),
+                color: theme.shadowColor.withOpacity(0.15),
                 blurRadius: 12,
                 offset: const Offset(0, 8),
               )
             ],
             border: Border.all(
-                color: theme.colorScheme.primary.withOpacity(0.12)),
+                color: theme.colorScheme.primary.withOpacity(isDark ? 0.2 : 0.12)),
           ),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           child: Row(
@@ -266,7 +290,11 @@ class _CameraPageState extends State<CameraPage> {
               Expanded(
                 child: Text(
                   _reasoningText!,
-                  style: TextStyle(fontSize: isWide ? 15 : 14, height: 1.35),
+                  style: TextStyle(
+                    fontSize: isWide ? 15 : 14, 
+                    height: 1.35,
+                    color: theme.colorScheme.onSurface,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
@@ -276,9 +304,13 @@ class _CameraPageState extends State<CameraPage> {
                     _showReasoning = false;
                   });
                 },
-                child: const Padding(
-                  padding: EdgeInsets.all(4.0),
-                  child: Icon(Icons.close, size: 18),
+                child: Padding(
+                  padding: const EdgeInsets.all(4.0),
+                  child: Icon(
+                    Icons.close, 
+                    size: 18,
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  ),
                 ),
               ),
             ],

@@ -14,7 +14,14 @@ import 'history_page.dart';
 import 'audio_page.dart';
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final bool isDarkMode;
+  final Function(bool) onThemeChanged;
+  
+  const HomePage({
+    super.key,
+    required this.isDarkMode,
+    required this.onThemeChanged,
+  });
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -344,11 +351,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         actions: [
           IconButton(
             onPressed: () {
-              ScaffoldMessenger.of(context)
-                  .showSnackBar(const SnackBar(content: Text('Settings coming soon')));
+              widget.onThemeChanged(!widget.isDarkMode);
             },
-            icon: const Icon(Icons.settings_outlined),
-            tooltip: 'Settings',
+            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
+            tooltip: widget.isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
           ),
         ],
       ),
@@ -381,7 +387,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
-        color: Colors.white,
+        color: theme.colorScheme.surface,
         elevation: 0,
         shape: const CircularNotchedRectangle(),
         notchMargin: 8,
@@ -396,7 +402,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   size: 28,
                   color: _currentIndex == 0
                       ? theme.colorScheme.primary
-                      : Colors.black54,
+                      : theme.colorScheme.onSurface.withOpacity(0.6),
                 ),
                 onPressed: () => setState(() {
                   _currentIndex = 0;
@@ -410,7 +416,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   size: 28,
                   color: _currentIndex == 1
                       ? theme.colorScheme.primary
-                      : Colors.black54,
+                      : theme.colorScheme.onSurface.withOpacity(0.6),
                 ),
                 onPressed: () => setState(() {
                   _currentIndex = 1;
@@ -425,7 +431,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   size: 28,
                   color: _currentIndex == 2
                       ? theme.colorScheme.primary
-                      : Colors.black54,
+                      : theme.colorScheme.onSurface.withOpacity(0.6),
                 ),
                 onPressed: () => setState(() {
                   _currentIndex = 2;
@@ -440,7 +446,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   size: 28,
                   color: _currentIndex == 3
                       ? theme.colorScheme.primary
-                      : Colors.black54,
+                      : theme.colorScheme.onSurface.withOpacity(0.6),
                 ),
                 onPressed: () => setState(() {
                   _currentIndex = 3;
@@ -675,11 +681,11 @@ class _HomePageContent extends StatelessWidget {
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       decoration: BoxDecoration(
-                        color: Colors.white,
+                        color: theme.colorScheme.surface,
                         borderRadius: BorderRadius.circular(14),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.04),
+                            color: theme.shadowColor.withOpacity(0.1),
                             blurRadius: 8,
                             offset: const Offset(0, 6),
                           )
@@ -693,13 +699,21 @@ class _HomePageContent extends StatelessWidget {
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: isAudio ? Colors.deepPurple.withOpacity(0.12) : Colors.blueGrey.withOpacity(0.12),
+                              color: isAudio 
+                                  ? Colors.deepPurple.withOpacity(theme.brightness == Brightness.dark ? 0.2 : 0.12) 
+                                  : Colors.blueGrey.withOpacity(theme.brightness == Brightness.dark ? 0.2 : 0.12),
                               borderRadius: BorderRadius.circular(10),
                               image: !isAudio && img != null
                                   ? DecorationImage(image: MemoryImage(img), fit: BoxFit.cover)
                                   : null,
                             ),
-                            child: (!isAudio && img != null) ? null : Icon(isAudio ? Icons.mic_rounded : Icons.pets, size: 24),
+                            child: (!isAudio && img != null) 
+                                ? null 
+                                : Icon(
+                                    isAudio ? Icons.mic_rounded : Icons.pets, 
+                                    size: 24,
+                                    color: theme.brightness == Brightness.dark ? Colors.white70 : Colors.black54,
+                                  ),
                           ),
                           const SizedBox(width: 10),
                           Expanded(
@@ -707,7 +721,10 @@ class _HomePageContent extends StatelessWidget {
                               text,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(height: 1.25),
+                              style: TextStyle(
+                                height: 1.25,
+                                color: theme.colorScheme.onSurface,
+                              ),
                             ),
                           ),
                         ],
@@ -721,11 +738,11 @@ class _HomePageContent extends StatelessWidget {
                   Container(
                     width: double.infinity,
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: theme.colorScheme.surface,
                       borderRadius: BorderRadius.circular(16),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.04),
+                          color: theme.shadowColor.withOpacity(0.1),
                           blurRadius: 8,
                           offset: const Offset(0, 6),
                         )
@@ -733,10 +750,20 @@ class _HomePageContent extends StatelessWidget {
                     ),
                     padding: const EdgeInsets.all(16),
                     child: Row(
-                      children: const [
-                        Icon(Icons.hourglass_empty_outlined),
-                        SizedBox(width: 10),
-                        Expanded(child: Text('No recent translations yet. Try a photo or meow!')),
+                      children: [
+                        Icon(
+                          Icons.hourglass_empty_outlined,
+                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'No recent translations yet. Try a photo or meow!',
+                            style: TextStyle(
+                              color: theme.colorScheme.onSurface.withOpacity(0.7),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
@@ -769,6 +796,9 @@ class _ActionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -776,7 +806,10 @@ class _ActionCard extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           gradient: LinearGradient(
-            colors: [color.withOpacity(0.12), color.withOpacity(0.04)],
+            colors: [
+              color.withOpacity(isDark ? 0.2 : 0.12), 
+              color.withOpacity(isDark ? 0.08 : 0.04)
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -790,10 +823,10 @@ class _ActionCard extends StatelessWidget {
               width: 42,
               height: 42,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.18),
+                color: color.withOpacity(isDark ? 0.25 : 0.18),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: Colors.black87),
+              child: Icon(icon, color: isDark ? Colors.white : Colors.black87),
             ),
             const SizedBox(height: 8),
             Flexible(
@@ -803,14 +836,21 @@ class _ActionCard extends StatelessWidget {
                 children: [
                   Text(
                     title, 
-                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700, 
+                      fontSize: 13,
+                      color: isDark ? Colors.white : Colors.black87,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 2),
                   Text(
                     subtitle, 
-                    style: const TextStyle(color: Colors.black54, fontSize: 11),
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : Colors.black54, 
+                      fontSize: 11
+                    ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
