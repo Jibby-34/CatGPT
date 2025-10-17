@@ -45,5 +45,11 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs access to camera to take photos of cats for translation.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to microphone to record cat sounds for translation.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>This app needs access to photo library to select images for translation.</string>
 </dict>
 </plist>

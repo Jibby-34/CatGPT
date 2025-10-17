@@ -4,12 +4,15 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:camera/camera.dart';
+import 'package:image_picker/image_picker.dart';
 
 class CameraPage extends StatefulWidget {
   final Uint8List? pickedImageBytes;
   final String? outputText;
   final Future<Uint8List?> Function() pickImage;
   final Future<void> Function() evaluateImage;
+  final Function(Uint8List) onImageCaptured;
 
   const CameraPage({
     super.key,
@@ -17,15 +20,23 @@ class CameraPage extends StatefulWidget {
     required this.outputText,
     required this.pickImage,
     required this.evaluateImage,
+    required this.onImageCaptured,
   });
 
   @override
   State<CameraPage> createState() => _CameraPageState();
 }
 
-class _CameraPageState extends State<CameraPage> {
+class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   bool _showReasoning = false;
   final GlobalKey _storyKey = GlobalKey();
+  
+  // Camera related variables
+  CameraController? _cameraController;
+  List<CameraDescription>? _cameras;
+  bool _isCameraInitialized = false;
+  bool _isCameraPermissionGranted = false;
+  final ImagePicker _picker = ImagePicker();
 
   String get _mainText {
     final text = widget.outputText ?? '';
@@ -45,16 +56,107 @@ class _CameraPageState extends State<CameraPage> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    _initializeCamera();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _cameraController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive) {
+      _cameraController?.dispose();
+    } else if (state == AppLifecycleState.resumed) {
+      _initializeCamera();
+    }
+  }
+
+  Future<void> _initializeCamera() async {
+    if (kIsWeb) return; // Camera preview not supported on web
+    
+    try {
+      _cameras = await availableCameras();
+      if (_cameras!.isEmpty) return;
+
+      _cameraController = CameraController(
+        _cameras![0],
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
+
+      await _cameraController!.initialize();
+      
+      if (mounted) {
+        setState(() {
+          _isCameraInitialized = true;
+          _isCameraPermissionGranted = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error initializing camera: $e');
+      if (mounted) {
+        setState(() {
+          _isCameraPermissionGranted = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _takePicture() async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
+
+    try {
+      final XFile image = await _cameraController!.takePicture();
+      final bytes = await image.readAsBytes();
+      
+      // Set the captured image in the parent
+      widget.onImageCaptured(bytes);
+      // Then evaluate the image
+      await widget.evaluateImage();
+    } catch (e) {
+      debugPrint('Error taking picture: $e');
+    }
+  }
+
+  Future<void> _pickImageFromGallery() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+      
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        // Set the picked image in the parent
+        widget.onImageCaptured(bytes);
+        // Then evaluate the image
+        await widget.evaluateImage();
+      }
+    } catch (e) {
+      debugPrint('Error picking image from gallery: $e');
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return LayoutBuilder(builder: (context, constraints) {
       final isWide = constraints.maxWidth >= 800;
       final maxCardWidth = isWide ? 820.0 : 480.0;
-      final imageHeight = isWide
-          ? 360.0
-          : (constraints.maxHeight.isFinite
-              ? (constraints.maxHeight * 0.35).clamp(220.0, 340.0)
-              : 300.0);
 
       return SingleChildScrollView(
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
@@ -76,7 +178,11 @@ class _CameraPageState extends State<CameraPage> {
                     ),
                   ),
                 ),
-                _buildMainCard(theme, maxCardWidth, imageHeight, isWide),
+                _buildCameraPreview(theme, maxCardWidth, isWide),
+                if (widget.outputText != null) ...[
+                  const SizedBox(height: 16),
+                  _buildOutputCard(theme, isWide),
+                ],
               ],
             ),
           ),
@@ -85,9 +191,10 @@ class _CameraPageState extends State<CameraPage> {
     });
   }
 
-  Widget _buildMainCard(
-      ThemeData theme, double maxCardWidth, double imageHeight, bool isWide) {
+  Widget _buildCameraPreview(ThemeData theme, double maxCardWidth, bool isWide) {
     final isDark = theme.brightness == Brightness.dark;
+    final imageHeight = isWide ? 400.0 : 300.0;
+    
     return Container(
       width: double.infinity,
       constraints: BoxConstraints(maxWidth: maxCardWidth),
@@ -119,48 +226,178 @@ class _CameraPageState extends State<CameraPage> {
                   height: imageHeight,
                   width: double.infinity,
                   color: isDark ? theme.colorScheme.surfaceVariant : Colors.grey[200],
-                  child: widget.pickedImageBytes != null
-                      ? Image.memory(widget.pickedImageBytes!, fit: BoxFit.cover)
-                      : Center(
-                          child: Icon(
-                            Icons.pets, 
-                            size: 92, 
-                            color: isDark ? Colors.white38 : Colors.black26,
-                          ),
-                        ),
+                  child: _buildCameraContent(theme),
                 ),
               ),
-              const SizedBox(height: 12),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Tap the camera button to take a photo',
-                    style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black87,
-                    ),
-                  ),
-                  if (kIsWeb)
-                    TextButton.icon(
-                      onPressed: () async {
-                        final bytes = await widget.pickImage();
-                        if (bytes == null) return;
-                        await widget.evaluateImage();
-                      },
-                      icon: const Icon(Icons.upload_file_outlined),
-                      label: const Text('Upload'),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              if (widget.outputText != null)
-                _buildOutputCard(theme, isWide),
+              const SizedBox(height: 16),
+              _buildCameraControls(theme),
             ],
           ),
           if (_showReasoning && _reasoningText != null)
             _buildReasoningPopup(theme, isWide),
         ],
       ),
+    );
+  }
+
+  Widget _buildCameraContent(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    
+    // If we have a captured image, show it
+    if (widget.pickedImageBytes != null) {
+      return Image.memory(widget.pickedImageBytes!, fit: BoxFit.cover);
+    }
+    
+    // If on web, show upload option
+    if (kIsWeb) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.camera_alt_outlined,
+              size: 64,
+              color: isDark ? Colors.white38 : Colors.black26,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Camera preview not available on web',
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.black54,
+                fontSize: 16,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final bytes = await widget.pickImage();
+                if (bytes == null) return;
+                await widget.evaluateImage();
+              },
+              icon: const Icon(Icons.upload_file_outlined),
+              label: const Text('Upload Image'),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // Show camera preview or loading/error state
+    if (!_isCameraPermissionGranted) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              Icons.camera_alt_outlined,
+              size: 64,
+              color: isDark ? Colors.white38 : Colors.black26,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Camera permission required',
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.black54,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    if (!_isCameraInitialized || _cameraController == null) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(
+              color: theme.colorScheme.primary,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Initializing camera...',
+              style: TextStyle(
+                color: isDark ? Colors.white70 : Colors.black54,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+    
+    // Show camera preview
+    return CameraPreview(_cameraController!);
+  }
+
+  Widget _buildCameraControls(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        // Image upload button (transparent)
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.black.withOpacity(0.3),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.5),
+              width: 2,
+            ),
+          ),
+          child: IconButton(
+            onPressed: _pickImageFromGallery,
+            icon: Icon(
+              Icons.image_outlined,
+              color: Colors.white,
+              size: 28,
+            ),
+            tooltip: 'Upload from Gallery',
+          ),
+        ),
+        
+        // Camera capture button
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: theme.colorScheme.primary,
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.primary.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: IconButton(
+            onPressed: kIsWeb ? null : _takePicture,
+            icon: Icon(
+              Icons.camera_alt_rounded,
+              color: Colors.white,
+              size: 32,
+            ),
+            tooltip: 'Take Photo',
+          ),
+        ),
+        
+        // Placeholder for symmetry
+        Container(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.transparent,
+          ),
+          child: IconButton(
+            onPressed: null,
+            icon: Icon(
+              Icons.camera_alt_rounded,
+              color: Colors.transparent,
+              size: 28,
+            ),
+          ),
+        ),
+      ],
     );
   }
 

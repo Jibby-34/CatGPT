@@ -495,6 +495,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   outputText: _outputText,
                   pickImage: pickImage,
                   evaluateImage: evaluateImage,
+                  onImageCaptured: (Uint8List bytes) {
+                    setState(() {
+                      _pickedImageBytes = bytes;
+                    });
+                  },
                 )
               : _currentIndex == 2
                   ? AudioPage(
