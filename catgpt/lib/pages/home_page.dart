@@ -213,7 +213,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             "parts": [
               {
                 "text":
-                    "Analyze the subject'sbody language and interpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). The subject should be a cat. If the subject is not a cat, simply state 'No cat detected!'. Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 3 reasons, all enclosed in the same braces. Your response should only contain one set of [] total. Example Phrase: The sun feels good on my belly, I think I'll stay here. [rolled over, eyes closed, sunshine]"
+                    "Analyze the subject's body language and interpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). The translation should be funny, and be phrased in a meme like way. Use emojis sparingly. The subject should be a cat. If the subject is not a cat, simply state 'No cat detected!'. Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 3 reasons, all enclosed in the same braces. Your response should only contain one set of [] total. Example Phrase: If I fits, I sits. [sitting down, undersized box, fat]"
               },
               {
                 "inline_data": {
@@ -292,7 +292,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             "parts": [
               {
                 "text":
-                    "Analyze this cat's meow and interpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 3 reasons. Example: I'm hungry and you're taking too long with my dinner! [high pitched meow, persistent tone, following you around]. Your response must match exactly the syntax of this example, and should contain no more substance than requested"
+                    "Analyze this sound andinterpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 3 reasons. Example: I'm hungry and you're taking too long with my dinner! [high pitched meow, persistent tone, ]. Your response must match exactly the syntax of this example, and should contain no more substance than requested"
               },
               {
                 "inline_data": {
