@@ -11,7 +11,6 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:camera/camera.dart';
 
 import 'history_page.dart';
-import 'audio_page.dart';
 
 class HomePage extends StatefulWidget {
   final bool isDarkMode;
@@ -29,7 +28,6 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   Uint8List? _pickedImageBytes;
-  Uint8List? _recordedAudioBytes;
   int _currentIndex = 1;
   String? _outputText;
   bool _isLoading = false;
@@ -39,7 +37,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   List<String> translationHistory = [];
   List<Uint8List?> imageHistory = [];
-  List<Uint8List?> audioHistory = [];
 
   final ImagePicker _picker = ImagePicker();
   SharedPreferences? _prefs;
@@ -87,7 +84,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _prefs = await SharedPreferences.getInstance();
       final texts = _prefs!.getStringList('translationHistory') ?? [];
       final imagesB64 = _prefs!.getStringList('imageHistory') ?? [];
-      final audiosB64 = _prefs!.getStringList('audioHistory') ?? [];
       
       if (mounted) {
         setState(() {
@@ -98,15 +94,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               return base64Decode(s);
             } catch (e) {
               debugPrint('Error decoding image: $e');
-              return null;
-            }
-          }).toList();
-          audioHistory = audiosB64.map((s) {
-            if (s.isEmpty) return null;
-            try {
-              return base64Decode(s);
-            } catch (e) {
-              debugPrint('Error decoding audio: $e');
               return null;
             }
           }).toList();
@@ -123,11 +110,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final maxLen = translationHistory.length;
     void padTo<T>(List<T?> list) { while (list.length < maxLen) list.add(null); }
     padTo(imageHistory);
-    padTo(audioHistory);
 
     await _prefs!.setStringList('translationHistory', translationHistory);
     await _prefs!.setStringList('imageHistory', imageHistory.map((b) => b == null ? '' : base64Encode(b)).toList());
-    await _prefs!.setStringList('audioHistory', audioHistory.map((b) => b == null ? '' : base64Encode(b)).toList());
   }
   void _loadBannerAd() {
     final ad = BannerAd(
@@ -210,10 +195,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
 
-  void _addHistoryEntry({required String text, Uint8List? imageBytes, Uint8List? audioBytes}) {
+  void _addHistoryEntry({required String text, Uint8List? imageBytes}) {
     translationHistory.add(text);
     imageHistory.add(imageBytes);
-    audioHistory.add(audioBytes);
     _saveHistory();
   }
 
@@ -288,7 +272,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     setState(() => _isLoading = true);
 
     try {
-      const apiKey = 'AIzaSyAiV17lMotobdGjP9UydikjhgFRXCbzV9w';
+      const apiKey = 'AIzaSyCy51BM9vdmk6ovRnvj3pB7lavyaMCu2qQ';
       final url = Uri.parse(
           'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=$apiKey');
 
@@ -323,7 +307,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
         setState(() {
           _outputText = text;
-          _addHistoryEntry(text: text, imageBytes: _pickedImageBytes, audioBytes: null);
+          _addHistoryEntry(text: text, imageBytes: _pickedImageBytes);
         });
         await _showRewardedAdIfAvailable();
       } else {
@@ -343,83 +327,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<Uint8List?> recordAudio(String path) async {
-    try {
-      final file = File(path);
-      final bytes = await file.readAsBytes();
-      setState(() {
-        _recordedAudioBytes = bytes;
-        _outputText = null;
-      });
-      return bytes;
-    } catch (e) {
-      debugPrint('recordAudio error: $e');
-      if (!mounted) return null;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error recording audio: $e')),
-      );
-    }
-    return null;
-  }
-
-  Future<void> evaluateAudio() async {
-    if (_recordedAudioBytes == null) return;
-    setState(() => _isLoading = true);
-
-    try {
-      const apiKey = 'AIzaSyAiV17lMotobdGjP9UydikjhgFRXCbzV9w';
-      final url = Uri.parse(
-  'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-lite:generateContent?key=$apiKey');
-
-      final headers = {'Content-Type': 'application/json'};
-      final base64Audio = base64Encode(_recordedAudioBytes!);
-
-      final body = jsonEncode({
-        "contents": [
-          {
-            "parts": [
-              {
-                "text":
-                  "Analyze this sound (intended to be a cat meow) and interpret into a dialogue-like phrase based on the tones and nature of the meow. The response should be short, but still contain substance (no one word phrases). The translation should be funny, and be phrased in a meme like way. Use emojis sparingly. The sound should be a cat meow. If the subject is not a cat meow, simply state 'No meow detected!' and do not provide reasoning.  Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 2 reasons, all enclosed in the same braces. Your response should only contain one set of [] total. Example Phrase: If I fits, I sits. [sitting down, undersized box, fat]"              },
-              {
-                "inline_data": {
-                  "mime_type": "audio/m4a",
-                  "data": base64Audio
-                }
-              }
-            ]
-          }
-        ]
-      });
-
-      final response = await http.post(url, headers: headers, body: body);
-
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final text = data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"] as String?;
-        if (text == null) throw Exception('Unexpected response shape.');
-
-        setState(() {
-          _outputText = text;
-          _addHistoryEntry(text: text, imageBytes: null, audioBytes: _recordedAudioBytes);
-        });
-        await _showRewardedAdIfAvailable();
-      } else {
-        debugPrint('API error ${response.statusCode}: ${response.body}');
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('API Error: ${response.statusCode}')));
-      }
-    } catch (e) {
-      debugPrint('evaluateAudio error: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Error analyzing audio.')));
-    } finally {
-      if (!mounted) return;
-      setState(() => _isLoading = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -488,8 +395,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               child: const Icon(Icons.camera_alt_rounded, size: 28),
             )
-              : _currentIndex == 2
-                  ? null // AudioPage manages its own recording controls
                   : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: BottomAppBar(
@@ -533,7 +438,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
               IconButton(
                 icon: Icon(
-                  Icons.mic_rounded,
+                  Icons.history_rounded,
                   size: 28,
                   color: _currentIndex == 2
                       ? theme.colorScheme.primary
@@ -543,23 +448,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   // Reset camera state when leaving camera tab
                   if (_currentIndex == 1) _resetCameraState();
                   _currentIndex = 2;
-                  // Clear cross-tab artifacts
-                  _outputText = null;
-                }),
-                tooltip: 'Audio',
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.history_rounded,
-                  size: 28,
-                  color: _currentIndex == 3
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface.withOpacity(0.6),
-                ),
-                onPressed: () => setState(() {
-                  // Reset camera state when leaving camera tab
-                  if (_currentIndex == 1) _resetCameraState();
-                  _currentIndex = 3;
                   // Avoid showing stale text in other tabs after returning
                   _outputText = null;
                 }),
@@ -581,12 +469,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 _currentIndex = 1;
                 _outputText = null;
               }),
-              onOpenAudio: () => setState(() {
-                _currentIndex = 2;
-                _outputText = null;
-              }),
               onOpenHistory: () => setState(() {
-                _currentIndex = 3;
+                _currentIndex = 2;
                 _outputText = null;
               }),
               onUploadAndTranslate: () async {
@@ -597,22 +481,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               onTakePhotoAndTranslate: _onTakePhoto,
               recentTranslations: translationHistory,
               recentImages: imageHistory,
-              recentAudios: audioHistory,
             )
           : _currentIndex == 1
               ? _buildCameraPreview()
-              : _currentIndex == 2
-                  ? AudioPage(
-                      recordedAudioBytes: _recordedAudioBytes,
-                      outputText: _outputText,
-                      recordAudio: recordAudio,
-                      evaluateAudio: evaluateAudio,
-                    )
-                  : HistoryPage(
-                      translationHistory: translationHistory,
-                      imageHistory: imageHistory,
-                      audioHistory: audioHistory,
-                    ),
+              : HistoryPage(
+                  translationHistory: translationHistory,
+                  imageHistory: imageHistory,
+                ),
     );
   }
 
@@ -856,23 +731,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
 class _HomePageContent extends StatelessWidget {
   final VoidCallback onOpenCamera;
-  final VoidCallback onOpenAudio;
   final VoidCallback onOpenHistory;
   final Future<void> Function() onUploadAndTranslate;
   final Future<void> Function() onTakePhotoAndTranslate;
   final List<String> recentTranslations;
   final List<Uint8List?> recentImages;
-  final List<Uint8List?> recentAudios;
 
   const _HomePageContent({
     required this.onOpenCamera,
-    required this.onOpenAudio,
     required this.onOpenHistory,
     required this.onUploadAndTranslate,
     required this.onTakePhotoAndTranslate,
     required this.recentTranslations,
     required this.recentImages,
-    required this.recentAudios,
   });
 
   @override
@@ -892,13 +763,6 @@ class _HomePageContent extends StatelessWidget {
         title: 'Upload Image',
         subtitle: 'Pick a photo from your device',
         onTap: () { onUploadAndTranslate(); },
-      ),
-      _ActionCard(
-        color: Colors.deepPurple,
-        icon: Icons.mic_rounded,
-        title: 'Record Meow',
-        subtitle: 'Capture 10s and translate',
-        onTap: onOpenAudio,
       ),
       _ActionCard(
         color: Colors.orange,
@@ -995,8 +859,6 @@ class _HomePageContent extends StatelessWidget {
                   ...recentItems.map((idx) {
                     final text = recentTranslations[idx];
                     final img = idx < recentImages.length ? recentImages[idx] : null;
-                    final aud = idx < recentAudios.length ? recentAudios[idx] : null;
-                    final isAudio = aud != null && (aud.isNotEmpty);
                     return Container(
                       margin: const EdgeInsets.only(bottom: 10),
                       decoration: BoxDecoration(
@@ -1018,18 +880,16 @@ class _HomePageContent extends StatelessWidget {
                             width: 44,
                             height: 44,
                             decoration: BoxDecoration(
-                              color: isAudio 
-                                  ? Colors.deepPurple.withOpacity(theme.brightness == Brightness.dark ? 0.2 : 0.12) 
-                                  : Colors.blueGrey.withOpacity(theme.brightness == Brightness.dark ? 0.2 : 0.12),
+                              color: Colors.blueGrey.withOpacity(theme.brightness == Brightness.dark ? 0.2 : 0.12),
                               borderRadius: BorderRadius.circular(10),
-                              image: !isAudio && img != null
+                              image: img != null
                                   ? DecorationImage(image: MemoryImage(img), fit: BoxFit.cover)
                                   : null,
                             ),
-                            child: (!isAudio && img != null) 
+                            child: img != null 
                                 ? null 
                                 : Icon(
-                                    isAudio ? Icons.mic_rounded : Icons.pets, 
+                                    Icons.pets, 
                                     size: 24,
                                     color: theme.brightness == Brightness.dark ? Colors.white70 : Colors.black54,
                                   ),

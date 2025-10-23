@@ -2,7 +2,6 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:share_plus/share_plus.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -158,7 +157,6 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                     child: _StoryCanvas(
                       imageBytes: widget.pickedImageBytes,
                       text: widget.outputText ?? '',
-                      isAudio: false,
                     ),
                   ),
                 ),
@@ -170,27 +168,55 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
           if (widget.outputText != null && !_hideResultOverlay)
             _buildResultOverlay(theme, isWide),
 
-          // Top overlay: gallery/select image button
+          // Top overlay: camera and upload buttons
           if (!kIsWeb)
             SafeArea(
               child: Align(
                 alignment: Alignment.topRight,
                 child: Padding(
                   padding: const EdgeInsets.all(12.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.black.withOpacity(0.35),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.6),
-                        width: 2,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Upload image button
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withOpacity(0.35),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.6),
+                            width: 2,
+                          ),
+                        ),
+                        child: IconButton(
+                          onPressed: () async {
+                            final bytes = await widget.pickImage();
+                            if (bytes != null) {
+                              await widget.evaluateImage();
+                            }
+                          },
+                          icon: const Icon(Icons.upload_file_rounded, color: Colors.white, size: 24),
+                          tooltip: 'Upload Image',
+                        ),
                       ),
-                    ),
-                    child: IconButton(
-                      onPressed: _takePicture,
-                      icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 24),
-                      tooltip: 'Take Photo',
-                    ),
+                      const SizedBox(width: 12),
+                      // Camera button
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withOpacity(0.35),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.6),
+                            width: 2,
+                          ),
+                        ),
+                        child: IconButton(
+                          onPressed: _takePicture,
+                          icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 24),
+                          tooltip: 'Take Photo',
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -460,12 +486,10 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 class _StoryCanvas extends StatelessWidget {
   final Uint8List? imageBytes;
   final String text;
-  final bool isAudio;
 
   const _StoryCanvas({
     required this.imageBytes,
     required this.text,
-    required this.isAudio,
   });
 
   @override

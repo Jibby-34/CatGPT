@@ -12,12 +12,8 @@ dependencies:
   http: ^1.1.0        # For HTTP requests
   image_picker: ^0.8.7+4
   camera: ^0.10.5+5   # For camera preview
-  record: ^6.1.0      # For audio recording
-  permission_handler: ^11.3.1  # For microphone permissions 
   shared_preferences: ^2.2.2
-  path_provider: ^2.1.3  # For file system access
   google_mobile_ads: ^5.1.0
-  share_plus: ^12.0.0
 
 
 dev_dependencies:

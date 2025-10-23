@@ -4,13 +4,11 @@ import 'package:flutter/material.dart';
 class HistoryPage extends StatelessWidget {
   final List<String> translationHistory;
   final List<Uint8List?> imageHistory;
-  final List<Uint8List?> audioHistory;
 
   const HistoryPage({
     super.key,
     required this.translationHistory,
     required this.imageHistory,
-    required this.audioHistory,
   });
 
   @override
@@ -41,15 +39,12 @@ class HistoryPage extends StatelessWidget {
               final reverseIndex = len - 1 - index;
 
               final safeImageIndex = reverseIndex < imageHistory.length ? reverseIndex : -1;
-              final safeAudioIndex = reverseIndex < audioHistory.length ? reverseIndex : -1;
 
               final translation = translationHistory[reverseIndex];
               final imageBytes = safeImageIndex >= 0 ? imageHistory[safeImageIndex] : null;
-              final audioBytes = safeAudioIndex >= 0 ? audioHistory[safeAudioIndex] : null;
-              final isAudio = audioBytes != null;
 
               return GestureDetector(
-                onTap: () => _showDetail(context, translation, imageBytes, audioBytes),
+                onTap: () => _showDetail(context, translation, imageBytes),
                 child: Card(
                   margin: const EdgeInsets.symmetric(vertical: 8),
                   shape: RoundedRectangleBorder(
@@ -61,14 +56,7 @@ class HistoryPage extends StatelessWidget {
                       children: [
                         ClipRRect(
                           borderRadius: BorderRadius.circular(10),
-                          child: isAudio
-                              ? Container(
-                                  width: tileSide,
-                                  height: tileSide,
-                                  color: Colors.blue[50],
-                                  child: const Icon(Icons.mic, size: 36, color: Colors.blue),
-                                )
-                              : imageBytes != null
+                          child: imageBytes != null
                                   ? Image.memory(imageBytes,
                                       width: tileSide, height: tileSide, fit: BoxFit.cover)
                                   : Container(
@@ -85,9 +73,6 @@ class HistoryPage extends StatelessWidget {
                             children: [
                               Row(
                                 children: [
-                                  if (isAudio)
-                                    const Icon(Icons.mic, size: 16, color: Colors.blue),
-                                  if (isAudio) const SizedBox(width: 4),
                                   Expanded(
                                     child: Text(
                                       _shortPreview(translation),
@@ -138,8 +123,7 @@ class HistoryPage extends StatelessWidget {
     return 'Tap to view full analysis';
   }
 
-  void _showDetail(BuildContext context, String translation, Uint8List? image, Uint8List? audio) {
-    final isAudio = audio != null;
+  void _showDetail(BuildContext context, String translation, Uint8List? image) {
     
     showDialog(
       context: context,
@@ -154,42 +138,7 @@ class HistoryPage extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               child: Column(
                 children: [
-                  if (isAudio)
-                    Container(
-                      height: 200,
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.blue[50],
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue[200]!),
-                      ),
-                      child: const Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.mic, size: 64, color: Colors.blue),
-                            SizedBox(height: 8),
-                            Text(
-                              'Audio Recording',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.blue,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'Tap to play (coming soon)',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.blue,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else if (image != null)
+                  if (image != null)
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
                       child: Image.memory(image, height: 260, fit: BoxFit.cover),
