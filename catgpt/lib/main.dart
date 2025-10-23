@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-// ADD BACK FOR ADS import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'pages/home_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // ADD BACK FOR ADS // Initialize Google Mobile Ads SDK
-  // ADD BACK FOR ADS await MobileAds.instance.initialize();
+  // Initialize Google Mobile Ads SDK
+  await MobileAds.instance.initialize();
 
   // Load saved theme mode before app starts
   final prefs = await SharedPreferences.getInstance();

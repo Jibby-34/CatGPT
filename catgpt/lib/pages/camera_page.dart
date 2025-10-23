@@ -1,5 +1,4 @@
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -37,7 +36,6 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   List<CameraDescription>? _cameras;
   bool _isCameraInitialized = false;
   bool _isCameraPermissionGranted = false;
-  final ImagePicker _picker = ImagePicker();
 
   String get _mainText {
     final text = widget.outputText ?? '';
@@ -142,25 +140,6 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _pickImageFromGallery() async {
-    try {
-      final XFile? image = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1600,
-        imageQuality: 85,
-      );
-      
-      if (image != null) {
-        final bytes = await image.readAsBytes();
-        // Set the picked image in the parent
-        widget.onImageCaptured(bytes);
-        // Then evaluate the image
-        await widget.evaluateImage();
-      }
-    } catch (e) {
-      debugPrint('Error picking image from gallery: $e');
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -208,43 +187,14 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                       ),
                     ),
                     child: IconButton(
-                      onPressed: _pickImageFromGallery,
-                      icon: const Icon(Icons.image_outlined, color: Colors.white, size: 24),
-                      tooltip: 'Select Image',
+                      onPressed: _takePicture,
+                      icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 24),
+                      tooltip: 'Take Photo',
                     ),
                   ),
                 ),
               ),
             ),
-
-          // Bottom overlay: capture button
-          if (!kIsWeb)
-            SafeArea(
-              child: Align(
-                alignment: Alignment.bottomCenter,
-                child: Padding(
-                  padding: const EdgeInsets.only(bottom: 18.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: theme.colorScheme.primary,
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.colorScheme.primary.withOpacity(0.3),
-                          blurRadius: 10,
-                          offset: const Offset(0, 6),
-                        ),
-                      ],
-                    ),
-                    child: IconButton(
-                      onPressed: _takePicture,
-                      icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 30),
-                      tooltip: 'Take Photo',
-                    ),
-                  ),
-            ),
-          ),
-        ),
 
           if (_showReasoning && _reasoningText != null) _buildReasoningPopup(theme, isWide),
         ],
@@ -324,7 +274,6 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 
     // Full-screen, cover-scaling camera preview
     final previewSize = _cameraController!.value.previewSize;
-    final size = MediaQuery.of(context).size;
 
     if (previewSize == null) {
       return Container(color: bg);
@@ -441,192 +390,6 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     );
   }
 
-  Widget _buildCameraContent(ThemeData theme) {
-    final isDark = theme.brightness == Brightness.dark;
-    
-    // If we have a captured image, show it
-    if (widget.pickedImageBytes != null) {
-      return Image.memory(widget.pickedImageBytes!, fit: BoxFit.contain);
-    }
-    
-    // If on web, show upload option
-    if (kIsWeb) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.camera_alt_outlined,
-              size: 64,
-              color: isDark ? Colors.white38 : Colors.black26,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Camera preview not available on web',
-              style: TextStyle(
-                color: isDark ? Colors.white70 : Colors.black54,
-                fontSize: 16,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ElevatedButton.icon(
-              onPressed: () async {
-                final bytes = await widget.pickImage();
-                if (bytes == null) return;
-                await widget.evaluateImage();
-              },
-              icon: const Icon(Icons.upload_file_outlined),
-              label: const Text('Upload Image'),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    // Show camera preview or loading/error state
-    if (!_isCameraPermissionGranted) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              Icons.camera_alt_outlined,
-              size: 64,
-              color: isDark ? Colors.white38 : Colors.black26,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Camera permission required',
-              style: TextStyle(
-                color: isDark ? Colors.white70 : Colors.black54,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    if (!_isCameraInitialized || _cameraController == null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            CircularProgressIndicator(
-              color: theme.colorScheme.primary,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Initializing camera...',
-              style: TextStyle(
-                color: isDark ? Colors.white70 : Colors.black54,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    
-    // Show camera preview
-    return CameraPreview(_cameraController!);
-  }
-
-  // Controls are now overlaid in the full-screen Stack; legacy row removed
-
-  Widget _buildOutputCard(ThemeData theme, bool isWide) {
-    final isDark = theme.brightness == Brightness.dark;
-    return Container(
-      width: double.infinity,
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: theme.shadowColor.withOpacity(0.1),
-            blurRadius: 8,
-            offset: const Offset(0, 6),
-          )
-        ],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      margin: const EdgeInsets.only(top: 12),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: isWide ? 50 : 44,
-            height: isWide ? 50 : 44,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(isDark ? 0.2 : 0.12),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Icon(
-              Icons.pets, 
-              size: 26,
-              color: isDark ? Colors.white70 : Colors.black87,
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _mainText,
-                  style: TextStyle(
-                    fontSize: isWide ? 18 : 16, 
-                    height: 1.35,
-                    color: theme.colorScheme.onSurface,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                if (_reasoningText != null)
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        setState(() {
-                          _showReasoning = !_showReasoning;
-                        });
-                      },
-                      icon: Icon(
-                        _showReasoning
-                            ? Icons.visibility_off_outlined
-                            : Icons.visibility_outlined,
-                      ),
-                      label: Text(_showReasoning
-                          ? 'Hide Reasoning'
-                          : 'Show Reasoning'),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 6),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                onPressed: () {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Copied to clipboard (mock)')),
-                  );
-                },
-                icon: const Icon(Icons.copy_outlined),
-                tooltip: 'Copy',
-              ),
-              IconButton(
-                onPressed: _shareStory,
-                icon: const Icon(Icons.ios_share),
-                tooltip: 'Share',
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 
   Widget _buildReasoningPopup(ThemeData theme, bool isWide) {
     final isDark = theme.brightness == Brightness.dark;
@@ -691,51 +454,6 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _shareStory() async {
-    try {
-      // 🔹 Wait for all frames to finish painting before capture
-      await Future.delayed(const Duration(milliseconds: 150));
-      await WidgetsBinding.instance.endOfFrame;
-
-      // 🔹 Find the boundary for the story widget
-      final renderObject = _storyKey.currentContext?.findRenderObject();
-      if (renderObject == null || renderObject is! RenderRepaintBoundary) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Story not ready to share — please try again.')),
-        );
-        return;
-      }
-
-      // 🔹 Double-check that it’s painted (avoid debugNeedsPaint issue)
-      if (renderObject.debugNeedsPaint) {
-        await Future.delayed(const Duration(milliseconds: 100));
-        await WidgetsBinding.instance.endOfFrame;
-      }
-
-      // 🔹 Capture the widget as image
-      final ui.Image image = await renderObject.toImage(pixelRatio: 3.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) {
-        throw Exception('Failed to convert to image bytes');
-      }
-
-      // 🔹 Convert to PNG and share
-      final pngBytes = byteData.buffer.asUint8List();
-      final file = XFile.fromData(
-        pngBytes,
-        name: 'catgpt_result.png',
-        mimeType: 'image/png',
-      );
-
-      await Share.shareXFiles([file], text: 'Check out my CatGPT translation 🐾');
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to share: $e')),
-      );
-    }
-  }
 
 }
 

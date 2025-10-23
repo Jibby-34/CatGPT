@@ -7,9 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-// ADD BACK FOR ADS import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:camera/camera.dart';
 
-import 'camera_page.dart';
 import 'history_page.dart';
 import 'audio_page.dart';
 
@@ -27,15 +27,15 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin {
+class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   Uint8List? _pickedImageBytes;
   Uint8List? _recordedAudioBytes;
   int _currentIndex = 1;
   String? _outputText;
   bool _isLoading = false;
-  // ADD BACK FOR ADS BannerAd? _bannerAd;
-  // ADD BACK FOR ADS bool _isBannerLoaded = false;
-  // ADD BACK FOR ADS RewardedAd? _rewardedAd;
+  BannerAd? _bannerAd;
+  bool _isBannerLoaded = false;
+  RewardedAd? _rewardedAd;
 
   List<String> translationHistory = [];
   List<Uint8List?> imageHistory = [];
@@ -43,13 +43,43 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   final ImagePicker _picker = ImagePicker();
   SharedPreferences? _prefs;
+  
+  // Camera related variables
+  CameraController? _cameraController;
+  List<CameraDescription>? _cameras;
+  bool _isCameraInitialized = false;
+  bool _isCameraPermissionGranted = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadPrefsAndHistory();
-    // ADD BACK FOR ADS _loadBannerAd();
-    // ADD BACK FOR ADS _loadRewardedAd();
+    _loadBannerAd();
+    _loadRewardedAd();
+    _initializeCamera();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _cameraController?.dispose();
+    _bannerAd?.dispose();
+    _rewardedAd?.dispose();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
+
+    if (state == AppLifecycleState.inactive) {
+      _cameraController?.dispose();
+    } else if (state == AppLifecycleState.resumed) {
+      _initializeCamera();
+    }
   }
 
   Future<void> _loadPrefsAndHistory() async {
@@ -99,47 +129,85 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     await _prefs!.setStringList('imageHistory', imageHistory.map((b) => b == null ? '' : base64Encode(b)).toList());
     await _prefs!.setStringList('audioHistory', audioHistory.map((b) => b == null ? '' : base64Encode(b)).toList());
   }
-  // ADD BACK FOR ADS void _loadBannerAd() {
-  // ADD BACK FOR ADS   final ad = BannerAd(
-  // ADD BACK FOR ADS     size: AdSize.banner,
-  // ADD BACK FOR ADS     adUnitId: const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-3940256099942544/6300978111'),
-  // ADD BACK FOR ADS     listener: BannerAdListener(
-  // ADD BACK FOR ADS       onAdLoaded: (ad) => setState(() {
-  // ADD BACK FOR ADS         _isBannerLoaded = true;
-  // ADD BACK FOR ADS       }),
-  // ADD BACK FOR ADS       onAdFailedToLoad: (ad, error) {
-  // ADD BACK FOR ADS         ad.dispose();
-  // ADD BACK FOR ADS       },
-  // ADD BACK FOR ADS     ),
-  // ADD BACK FOR ADS     request: const AdRequest(),
-  // ADD BACK FOR ADS   );
-  // ADD BACK FOR ADS   ad.load();
-  // ADD BACK FOR ADS   _bannerAd = ad;
-  // ADD BACK FOR ADS }
+  void _loadBannerAd() {
+    final ad = BannerAd(
+      size: AdSize.banner,
+      adUnitId: const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-6076315103458124/2564470304'),
+      listener: BannerAdListener(
+        onAdLoaded: (ad) => setState(() {
+          _isBannerLoaded = true;
+        }),
+        onAdFailedToLoad: (ad, error) {
+          ad.dispose();
+        },
+      ),
+      request: const AdRequest(),
+    );
+    ad.load();
+    _bannerAd = ad;
+  }
 
-  // ADD BACK FOR ADS void _loadRewardedAd() {
-  // ADD BACK FOR ADS   RewardedAd.load(
-  // ADD BACK FOR ADS     adUnitId: const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-3940256099942544/5224354917'),
-  // ADD BACK FOR ADS     request: const AdRequest(),
-  // ADD BACK FOR ADS     rewardedAdLoadCallback: RewardedAdLoadCallback(
-  // ADD BACK FOR ADS       onAdLoaded: (ad) {
-  // ADD BACK FOR ADS         _rewardedAd = ad;
-  // ADD BACK FOR ADS       },
-  // ADD BACK FOR ADS       onAdFailedToLoad: (error) {
-  // ADD BACK FOR ADS         _rewardedAd = null;
-  // ADD BACK FOR ADS       },
-  // ADD BACK FOR ADS     ),
-  // ADD BACK FOR ADS   );
-  // ADD BACK FOR ADS }
+  void _loadRewardedAd() {
+    RewardedAd.load(
+      adUnitId: const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-6076315103458124/7232868279'),
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          _rewardedAd = ad;
+        },
+        onAdFailedToLoad: (error) {
+          _rewardedAd = null;
+        },
+      ),
+    );
+  }
 
-  // ADD BACK FOR ADS Future<void> _showRewardedAdIfAvailable() async {
-  // ADD BACK FOR ADS   final ad = _rewardedAd;
-  // ADD BACK FOR ADS   if (ad == null) return;
-  // ADD BACK FOR ADS   await ad.show(onUserEarnedReward: (ad, reward) {});
-  // ADD BACK FOR ADS   ad.dispose();
-  // ADD BACK FOR ADS   _rewardedAd = null;
-  // ADD BACK FOR ADS   _loadRewardedAd();
-  // ADD BACK FOR ADS }
+  Future<void> _showRewardedAdIfAvailable() async {
+    final ad = _rewardedAd;
+    if (ad == null) return;
+    await ad.show(onUserEarnedReward: (ad, reward) {});
+    ad.dispose();
+    _rewardedAd = null;
+    _loadRewardedAd();
+  }
+
+  Future<void> _initializeCamera() async {
+    if (kIsWeb) return; // Camera preview not supported on web
+    
+    try {
+      _cameras = await availableCameras();
+      if (_cameras!.isEmpty) return;
+
+      _cameraController = CameraController(
+        _cameras![0],
+        ResolutionPreset.high,
+        enableAudio: false,
+      );
+
+      await _cameraController!.initialize();
+      
+      if (mounted) {
+        setState(() {
+          _isCameraInitialized = true;
+          _isCameraPermissionGranted = true;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error initializing camera: $e');
+      if (mounted) {
+        setState(() {
+          _isCameraPermissionGranted = false;
+        });
+      }
+    }
+  }
+
+  void _resetCameraState() {
+    setState(() {
+      _pickedImageBytes = null;
+      _outputText = null;
+    });
+  }
 
 
   void _addHistoryEntry({required String text, Uint8List? imageBytes, Uint8List? audioBytes}) {
@@ -180,18 +248,38 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _onTakePhoto() async {
-    final bytes = await pickImage();
-    if (bytes == null) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('No image selected.')));
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      // Fallback to image picker if camera is not available
+      final bytes = await pickImage();
+      if (bytes == null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(const SnackBar(content: Text('No image selected.')));
+        return;
+      }
+      setState(() {
+        _pickedImageBytes = bytes;
+        _outputText = null;
+      });
+      await evaluateImage();
       return;
     }
-    setState(() {
-      _pickedImageBytes = bytes;
-      _outputText = null;
-    });
-    await evaluateImage();
+
+    try {
+      final XFile image = await _cameraController!.takePicture();
+      final bytes = await image.readAsBytes();
+      
+      setState(() {
+        _pickedImageBytes = bytes;
+        _outputText = null;
+      });
+      await evaluateImage();
+    } catch (e) {
+      debugPrint('Error taking picture: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(const SnackBar(content: Text('Error taking photo.')));
+    }
   }
 
 
@@ -213,7 +301,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             "parts": [
               {
                 "text":
-                    "Analyze the subject's body language and interpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). The translation should be funny, and be phrased in a meme like way. Use emojis sparingly. The subject should be a cat. If the subject is not a cat, simply state 'No cat detected!'. Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 3 reasons, all enclosed in the same braces. Your response should only contain one set of [] total. Example Phrase: If I fits, I sits. [sitting down, undersized box, fat]"
+                    "Analyze the subject's body language and interpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). The translation should be funny, and be phrased in a meme like way. Use emojis sparingly. The subject should be a cat. If the subject is not a cat, simply state 'No cat detected!' and do not provide reasoning.  Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 3 reasons, all enclosed in the same braces. Your response should only contain one set of [] total. Example Phrase: If I fits, I sits. [sitting down, undersized box, fat]"
               },
               {
                 "inline_data": {
@@ -237,7 +325,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _outputText = text;
           _addHistoryEntry(text: text, imageBytes: _pickedImageBytes, audioBytes: null);
         });
-        // ADD BACK FOR ADS await _showRewardedAdIfAvailable();
+        await _showRewardedAdIfAvailable();
       } else {
         debugPrint('API error ${response.statusCode}: ${response.body}');
         if (!mounted) return;
@@ -281,7 +369,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     try {
       const apiKey = 'AIzaSyAiV17lMotobdGjP9UydikjhgFRXCbzV9w';
       final url = Uri.parse(
-          'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=$apiKey');
+  'https://generativelanguage.googleapis.com/v1/models/gemini-2.5-flash-lite:generateContent?key=$apiKey');
 
       final headers = {'Content-Type': 'application/json'};
       final base64Audio = base64Encode(_recordedAudioBytes!);
@@ -292,8 +380,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             "parts": [
               {
                 "text":
-                    "Analyze this sound andinterpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 3 reasons. Example: I'm hungry and you're taking too long with my dinner! [high pitched meow, persistent tone, ]. Your response must match exactly the syntax of this example, and should contain no more substance than requested"
-              },
+                  "Analyze this sound (intended to be a cat meow) and interpret into a dialogue-like phrase based on the tones and nature of the meow. The response should be short, but still contain substance (no one word phrases). The translation should be funny, and be phrased in a meme like way. Use emojis sparingly. The sound should be a cat meow. If the subject is not a cat meow, simply state 'No meow detected!' and do not provide reasoning.  Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 2 reasons, all enclosed in the same braces. Your response should only contain one set of [] total. Example Phrase: If I fits, I sits. [sitting down, undersized box, fat]"              },
               {
                 "inline_data": {
                   "mime_type": "audio/m4a",
@@ -316,7 +403,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _outputText = text;
           _addHistoryEntry(text: text, imageBytes: null, audioBytes: _recordedAudioBytes);
         });
-        // ADD BACK FOR ADS await _showRewardedAdIfAvailable();
+        await _showRewardedAdIfAvailable();
       } else {
         debugPrint('API error ${response.statusCode}: ${response.body}');
         if (!mounted) return;
@@ -360,17 +447,36 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       ),
       body: Stack(
         children: [
+          // Main content area
           SafeArea(child: Column(
             children: [
+              // Add top padding to account for banner ad
+              if (_isBannerLoaded && _bannerAd != null)
+                SizedBox(height: _bannerAd!.size.height.toDouble()),
+              // Main content with adjusted spacing
               Expanded(child: _buildBody()),
-              // ADD BACK FOR ADS if (_isBannerLoaded && _bannerAd != null)
-              // ADD BACK FOR ADS   SizedBox(
-              // ADD BACK FOR ADS     width: _bannerAd!.size.width.toDouble(),
-              // ADD BACK FOR ADS     height: _bannerAd!.size.height.toDouble(),
-              // ADD BACK FOR ADS     child: AdWidget(ad: _bannerAd!),
-              // ADD BACK FOR ADS   ),
             ],
           )),
+          // Banner ad positioned at the top with higher z-index
+          if (_isBannerLoaded && _bannerAd != null)
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                width: double.infinity,
+                height: _bannerAd!.size.height.toDouble(),
+                color: Theme.of(context).colorScheme.surface,
+                child: Center(
+                  child: SizedBox(
+                    width: _bannerAd!.size.width.toDouble(),
+                    height: _bannerAd!.size.height.toDouble(),
+                    child: AdWidget(ad: _bannerAd!),
+                  ),
+                ),
+              ),
+            ),
+          // Loading overlay on top
           if (_isLoading) _buildLoadingOverlay(),
         ],
       ),
@@ -389,8 +495,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       bottomNavigationBar: BottomAppBar(
         color: theme.colorScheme.surface,
         elevation: 0,
-        shape: const CircularNotchedRectangle(),
-        notchMargin: 8,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 6),
           child: Row(
@@ -405,6 +509,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       : theme.colorScheme.onSurface.withOpacity(0.6),
                 ),
                 onPressed: () => setState(() {
+                  // Reset camera state when leaving camera tab
+                  if (_currentIndex == 1) _resetCameraState();
                   _currentIndex = 0;
                   _outputText = null;
                 }),
@@ -434,6 +540,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       : theme.colorScheme.onSurface.withOpacity(0.6),
                 ),
                 onPressed: () => setState(() {
+                  // Reset camera state when leaving camera tab
+                  if (_currentIndex == 1) _resetCameraState();
                   _currentIndex = 2;
                   // Clear cross-tab artifacts
                   _outputText = null;
@@ -449,6 +557,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       : theme.colorScheme.onSurface.withOpacity(0.6),
                 ),
                 onPressed: () => setState(() {
+                  // Reset camera state when leaving camera tab
+                  if (_currentIndex == 1) _resetCameraState();
                   _currentIndex = 3;
                   // Avoid showing stale text in other tabs after returning
                   _outputText = null;
@@ -490,17 +600,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               recentAudios: audioHistory,
             )
           : _currentIndex == 1
-              ? CameraPage(
-                  pickedImageBytes: _pickedImageBytes,
-                  outputText: _outputText,
-                  pickImage: pickImage,
-                  evaluateImage: evaluateImage,
-                  onImageCaptured: (Uint8List bytes) {
-                    setState(() {
-                      _pickedImageBytes = bytes;
-                    });
-                  },
-                )
+              ? _buildCameraPreview()
               : _currentIndex == 2
                   ? AudioPage(
                       recordedAudioBytes: _recordedAudioBytes,
@@ -513,6 +613,220 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       imageHistory: imageHistory,
                       audioHistory: audioHistory,
                     ),
+    );
+  }
+
+  Widget _buildCameraPreview() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final bg = isDark ? theme.colorScheme.surfaceVariant : Colors.black;
+    
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Main camera preview or captured image
+        _buildMainCameraContent(theme, isDark, bg),
+        
+        // Result overlay when there's output text
+        if (_outputText != null) _buildResultOverlay(theme),
+      ],
+    );
+  }
+
+  Widget _buildMainCameraContent(ThemeData theme, bool isDark, Color bg) {
+    // If we have a captured image, show it full screen
+    if (_pickedImageBytes != null) {
+      return Container(
+        color: bg,
+        child: Image.memory(
+          _pickedImageBytes!,
+          fit: BoxFit.contain,
+          width: double.infinity,
+          height: double.infinity,
+        ),
+      );
+    }
+
+    // Web fallback
+    if (kIsWeb) {
+      return Container(
+        color: bg,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.camera_alt_outlined, size: 64, color: Colors.white54),
+              const SizedBox(height: 16),
+              const Text('Camera preview not available on web', style: TextStyle(color: Colors.white70)),
+              const SizedBox(height: 12),
+              ElevatedButton.icon(
+                onPressed: () async {
+                  final bytes = await pickImage();
+                  if (bytes == null) return;
+                  await evaluateImage();
+                },
+                icon: const Icon(Icons.upload_file_outlined),
+                label: const Text('Upload Image'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Permission/state handling
+    if (!_isCameraPermissionGranted) {
+      return Container(
+        color: bg,
+        child: const Center(
+          child: Text('Camera permission required', style: TextStyle(color: Colors.white70)),
+        ),
+      );
+    }
+
+    if (!_isCameraInitialized || _cameraController == null) {
+      return Container(
+        color: bg,
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: theme.colorScheme.primary),
+              const SizedBox(height: 16),
+              const Text('Initializing camera...', style: TextStyle(color: Colors.white70)),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Full-screen, cover-scaling camera preview
+    final previewSize = _cameraController!.value.previewSize;
+
+    if (previewSize == null) {
+      return Container(color: bg);
+    }
+
+    // The plugin reports landscape size; swap to match portrait if needed
+    final double previewWidth = previewSize.height;
+    final double previewHeight = previewSize.width;
+
+    return Container(
+      color: Colors.black,
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: previewWidth,
+          height: previewHeight,
+          child: CameraPreview(_cameraController!),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildResultOverlay(ThemeData theme) {
+    final isDark = theme.brightness == Brightness.dark;
+    
+    // Parse the output text to separate main text and reasoning
+    final text = _outputText ?? '';
+    final idx = text.indexOf('[');
+    final mainText = idx == -1 ? text.trim() : text.substring(0, idx).trim();
+    final reasoningText = idx != -1 && text.indexOf(']') > idx 
+        ? text.substring(idx + 1, text.indexOf(']')).trim()
+        : null;
+
+    return Positioned(
+      left: 14,
+      right: 14,
+      bottom: 72, // sits just above the capture button
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: Container(
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surface.withOpacity(0.95),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: [
+                BoxShadow(
+                  color: theme.shadowColor.withOpacity(0.2),
+                  blurRadius: 12,
+                  offset: const Offset(0, 8),
+                ),
+              ],
+              border: Border.all(
+                color: theme.colorScheme.primary.withOpacity(isDark ? 0.22 : 0.14),
+                width: 1,
+              ),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.pets, size: 20, color: theme.colorScheme.onSurface),
+                const SizedBox(width: 10),
+                Flexible(
+                  fit: FlexFit.loose,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        mainText,
+                        style: TextStyle(
+                          fontSize: 15,
+                          height: 1.3,
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (reasoningText != null) ...[
+                        const SizedBox(height: 6),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: () {
+                              // Show reasoning in a snackbar or dialog
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Reasoning: $reasoningText'),
+                                  duration: const Duration(seconds: 4),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.visibility_outlined, size: 18),
+                            label: const Text('Show reasoning'),
+                            style: TextButton.styleFrom(
+                              foregroundColor: theme.colorScheme.primary,
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                              minimumSize: const Size(0, 0),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 6),
+                InkWell(
+                  onTap: () {
+                    _resetCameraState();
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.all(4.0),
+                    child: Icon(
+                      Icons.close,
+                      size: 18,
+                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
