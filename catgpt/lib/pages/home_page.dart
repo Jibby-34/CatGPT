@@ -305,11 +305,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final text = data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"] as String?;
         if (text == null) throw Exception('Unexpected response shape.');
 
-        setState(() {
-          _outputText = text;
-          _addHistoryEntry(text: text, imageBytes: _pickedImageBytes);
-        });
-        await _showRewardedAdIfAvailable();
+        if (!text.contains('No cat detected!')) {
+          setState(() {
+            _outputText = text;
+            _addHistoryEntry(text: text, imageBytes: _pickedImageBytes);
+          });
+          await _showRewardedAdIfAvailable();
+        }
       } else {
         debugPrint('API error ${response.statusCode}: ${response.body}');
         if (!mounted) return;
