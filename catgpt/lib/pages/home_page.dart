@@ -285,7 +285,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             "parts": [
               {
                 "text":
-                    "Analyze the subject's body language and interpret it's feelings into a dialogue-like phrase that is short, but still contains substance (no one word phrases). The translation should be funny, and be phrased in a meme like way. Use emojis sparingly. The subject should be a cat. If the subject is not a cat, simply state 'No cat detected!' and do not provide reasoning.  Additionally, add reasoning for the decision in short phrases, encapsulated in []. Provide exactly 3 reasons, all enclosed in the same braces. Your response should only contain one set of [] total. Example Phrase: If I fits, I sits. [sitting down, undersized box, fat]"
+                    "Describe the cat's body language in a short, dialogue-like, funny/meme phrase (no one-word replies). Use few emojis. If not a cat, say "No cat detected!" only. Add reasoning in one [] with exactly 3 short phrases. Example: If I fits, I sits. [sitting down, undersized box, fat]"
               },
               {
                 "inline_data": {
