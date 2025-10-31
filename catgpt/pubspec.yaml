@@ -14,6 +14,7 @@ dependencies:
   camera: ^0.10.5+5   # For camera preview
   shared_preferences: ^2.2.2
   google_mobile_ads: ^5.1.0
+  flutter_launcher_icons: ^0.14.4
 
 
 dev_dependencies:
@@ -25,3 +26,10 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icons/catgpt_logo.png
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/icon.png"
+  remove_alpha_ios: true
+
