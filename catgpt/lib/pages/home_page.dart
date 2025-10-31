@@ -285,7 +285,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             "parts": [
               {
                 "text":
-                    "Describe the cat's body language in a short, dialogue-like, funny/meme phrase (no one-word replies). Use few emojis. If not a cat, say "No cat detected!" only. Add reasoning in one [] with exactly 3 short phrases. Example: If I fits, I sits. [sitting down, undersized box, fat]"
+                    "Describe the cat's body language in a short, dialogue-like, funny/meme phrase (no one-word replies). Use few emojis. If not a cat, say 'No cat detected!' only. Add reasoning in one [] with exactly 3 short phrases. Example: If I fits, I sits. [sitting down, undersized box, fat]"
               },
               {
                 "inline_data": {
@@ -305,9 +305,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final text = data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"] as String?;
         if (text == null) throw Exception('Unexpected response shape.');
 
+        setState(() {
+            _outputText = text;
+          });
         if (!text.contains('No cat detected!')) {
           setState(() {
-            _outputText = text;
             _addHistoryEntry(text: text, imageBytes: _pickedImageBytes);
           });
           await _showRewardedAdIfAvailable();
