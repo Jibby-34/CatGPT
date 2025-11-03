@@ -753,29 +753,7 @@ class _HomePageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final actions = [
-      _ActionCard(
-        color: theme.colorScheme.primary,
-        icon: Icons.camera_alt_rounded,
-        title: 'Take Photo',
-        subtitle: 'Snap your cat and translate vibes',
-        onTap: () { onTakePhotoAndTranslate(); },
-      ),
-      _ActionCard(
-        color: Colors.teal,
-        icon: Icons.upload_file_outlined,
-        title: 'Upload Image',
-        subtitle: 'Pick a photo from your device',
-        onTap: () { onUploadAndTranslate(); },
-      ),
-      _ActionCard(
-        color: Colors.orange,
-        icon: Icons.history_rounded,
-        title: 'History',
-        subtitle: 'Review recent translations',
-        onTap: onOpenHistory,
-      ),
-    ];
+    // Replaced 3 action cards with 2 primary buttons (Upload, Camera)
 
 
     return LayoutBuilder(
@@ -783,11 +761,6 @@ class _HomePageContent extends StatelessWidget {
         final isWide = constraints.maxWidth >= 700;
         final horizontalPadding = isWide ? 28.0 : 18.0;
         final topPadding = isWide ? 24.0 : 16.0;
-
-        // Grid size: 1 row on wide (4 columns), 2 rows on narrow (2 columns)
-        final crossAxisCount = isWide ? 4 : 2;
-        final rows = (actions.length / crossAxisCount).ceil();
-        final gridHeight = isWide ? 150.0 : (rows == 2 ? 280.0 : 150.0);
 
         // Recent items: cap to 2 to avoid scroll
         final maxRecent = 2;
@@ -829,22 +802,68 @@ class _HomePageContent extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                SizedBox(
-                  height: gridHeight,
-                  child: GridView.builder(
-                    padding: EdgeInsets.zero,
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: crossAxisCount,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      childAspectRatio: isWide ? 1.8 : 1.2,
-                    ),
-                    itemCount: actions.length,
-                    itemBuilder: (context, index) => actions[index],
+                // Two primary buttons replacing the previous three boxes
+                if (isWide)
+                  Row(
+                    children: [
+                      Expanded(
+                        child: SizedBox(
+                          height: 56,
+                          child: ElevatedButton.icon(
+                            onPressed: onUploadAndTranslate,
+                            icon: const Icon(Icons.photo_library_outlined),
+                            label: const Text('Upload Image'),
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: SizedBox(
+                          height: 56,
+                          child: ElevatedButton.icon(
+                            onPressed: onOpenCamera,
+                            icon: const Icon(Icons.camera_alt_rounded),
+                            label: const Text('Open Camera'),
+                            style: ElevatedButton.styleFrom(
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 52,
+                        child: ElevatedButton.icon(
+                          onPressed: onUploadAndTranslate,
+                          icon: const Icon(Icons.photo_library_outlined),
+                          label: const Text('Upload Image'),
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        height: 52,
+                        child: ElevatedButton.icon(
+                          onPressed: onOpenCamera,
+                          icon: const Icon(Icons.camera_alt_rounded),
+                          label: const Text('Open Camera'),
+                          style: ElevatedButton.styleFrom(
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ),
                 const SizedBox(height: 24),
                 if (hasRecent) ...[
                   const SizedBox(height: 8),
