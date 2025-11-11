@@ -272,54 +272,32 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     setState(() => _isLoading = true);
 
     try {
-      const apiKey = 'AIzaSyCy51BM9vdmk6ovRnvj3pB7lavyaMCu2qQ';
-      final url = Uri.parse(
-          'https://generativelanguage.googleapis.com/v1/models/gemini-2.0-flash-lite:generateContent?key=$apiKey');
-
+      final url = Uri.parse('https://my-proxy-server.image-proxy-gateway.workers.dev/');
       final headers = {'Content-Type': 'application/json'};
       final base64Image = base64Encode(_pickedImageBytes!);
 
       final body = jsonEncode({
-        "contents": [
-          {
-            "parts": [
-              {
-                "text":
-                    "Describe the cat's body language in a short, dialogue-like, funny/meme phrase (no one-word replies). Use few emojis. If not a cat, say 'No cat detected!' only. Add reasoning in one [] with exactly 3 short phrases. Example: If I fits, I sits. [sitting down, undersized box, fat]"
-              },
-              {
-                "inline_data": {
-                  "mime_type": "image/jpeg",
-                  "data": base64Image
-                }
-              }
-            ]
-          }
-        ]
+        "image": base64Image,
+        "prompt": "Describe the cat's body language in a short, dialogue-like, funny/meme phrase (no one-word replies). Use few emojis. If not a cat, say 'No cat detected!' only. Add reasoning in one [] with exactly 3 short phrases."
       });
 
       final response = await http.post(url, headers: headers, body: body);
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final text = data["candidates"]?[0]?["content"]?["parts"]?[0]?["text"] as String?;
-        if (text == null) throw Exception('Unexpected response shape.');
+        final text = data['text'] as String?;
+        if (text == null) throw Exception('Invalid server response');
+        setState(() => _outputText = text);
 
-        setState(() {
-            _outputText = text;
-          });
         if (!text.contains('No cat detected!')) {
-          setState(() {
-            _addHistoryEntry(text: text, imageBytes: _pickedImageBytes);
-          });
+          _addHistoryEntry(text: text, imageBytes: _pickedImageBytes);
           await _showRewardedAdIfAvailable();
         }
       } else {
-        debugPrint('API error ${response.statusCode}: ${response.body}');
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('API Error: ${response.statusCode}')));
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Server Error: ${response.statusCode}')));
       }
+
     } catch (e) {
       debugPrint('evaluateImage error: $e');
       if (!mounted) return;
