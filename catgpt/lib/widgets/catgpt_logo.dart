@@ -10,14 +10,20 @@ class CatGptLogo extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDarkMode = isDark ?? Theme.of(context).brightness == Brightness.dark;
+    // If a specific color is provided, use it. Otherwise, when in dark mode
+    // prefer tinting the logo to the theme's onSurface color so it appears
+    // correctly against dark backgrounds (this is more reliable than using
+    // a ColorFiltered inversion when the logo sits above platform views like
+    // the camera preview).
+    final Color? tintColor = color ?? (isDarkMode ? Theme.of(context).colorScheme.onSurface : null);
 
     final image = Image.asset(
       'assets/icons/catgpt_logo.png',
       width: size,
       height: size,
-      color: color,
+      color: tintColor,
       fit: BoxFit.contain,
-      colorBlendMode: color != null ? BlendMode.srcIn : null,
+      colorBlendMode: tintColor != null ? BlendMode.srcIn : null,
       filterQuality: FilterQuality.high,
       isAntiAlias: true,
       excludeFromSemantics: true,
@@ -31,20 +37,6 @@ class CatGptLogo extends StatelessWidget {
       },
     );
 
-    final shouldInvert = isDarkMode && color == null;
-
-    return ClipRect(
-      child: shouldInvert
-          ? ColorFiltered(
-              colorFilter: const ColorFilter.matrix(<double>[
-                -1,  0,  0, 0, 255,
-                 0, -1,  0, 0, 255,
-                 0,  0, -1, 0, 255,
-                 0,  0,  0, 1,   0,
-              ]),
-              child: image,
-            )
-          : image,
-    );
+    return ClipRect(child: image);
   }
 }

@@ -185,8 +185,13 @@ class _HistoryPageState extends State<HistoryPage> {
                                 ),
                                 const SizedBox(width: 4),
                               ],
-                              const Icon(Icons.chevron_right_rounded,
-                                  color: Colors.black38),
+                              Icon(
+                                Icons.chevron_right_rounded,
+                                // Follow theme: use a white-ish icon in dark mode, keep muted dark color in light mode
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.white70
+                                    : Colors.black38,
+                              ),
                             ],
                           ),
                         ),
