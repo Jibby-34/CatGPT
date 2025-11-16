@@ -277,7 +277,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       final base64Image = base64Encode(_pickedImageBytes!);
 
       final body = jsonEncode({
-        "image": base64Image,
+        "imageBase64": base64Image,
         "prompt": "Describe the cat's body language in a short, dialogue-like, funny/meme phrase (no one-word replies). Use few emojis. If not a cat, say 'No cat detected!' only. Add reasoning in one [] with exactly 3 short phrases."
       });
 
