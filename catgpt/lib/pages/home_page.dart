@@ -11,6 +11,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:camera/camera.dart';
 
 import 'history_page.dart';
+import '../services/share_service.dart';
 
 class HomePage extends StatefulWidget {
   final bool isDarkMode;
@@ -201,6 +202,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _saveHistory();
   }
 
+  void _clearHistory() {
+    setState(() {
+      translationHistory.clear();
+      imageHistory.clear();
+    });
+    _saveHistory();
+  }
+
   Future<Uint8List?> pickImage() async {
     try {
       final pickedFile = await _picker.pickImage(
@@ -227,6 +236,35 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return bytes;
     } catch (e) {
       debugPrint('pickImage error: $e');
+      return null;
+    }
+  }
+
+  Future<Uint8List?> pickImageFromGallery() async {
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+      if (pickedFile == null) return null;
+      Uint8List bytes;
+      if (kIsWeb) {
+        bytes = await pickedFile.readAsBytes();
+      } else {
+        final file = File(pickedFile.path);
+        bytes = await file.readAsBytes();
+      }
+      if (mounted) {
+        setState(() {
+          _pickedImageBytes = bytes;
+          // Clear any previous text so other tabs don't show stale content
+          _outputText = null;
+        });
+      }
+      return bytes;
+    } catch (e) {
+      debugPrint('pickImageFromGallery error: $e');
       return null;
     }
   }
@@ -278,7 +316,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
       final body = jsonEncode({
         "imageBase64": base64Image,
-        "prompt": "Describe the cat's body language in a short, dialogue-like, funny/meme phrase (no one-word replies). Use few emojis. If not a cat, say 'No cat detected!' only. Add reasoning in one [] with exactly 3 short phrases."
+        "prompt": "Describe the cat's body language in a short, dialogue-like, funny/meme phrase (no one-word replies). Use few emojis. All text must stay on one line. If not a cat, say 'No cat detected!' only. Add reasoning in one [] with exactly 2 adjectives. Do not include reasoning if there is no cat detected."
       });
 
       final response = await http.post(url, headers: headers, body: body);
@@ -318,10 +356,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         centerTitle: true,
         title: Row(
           mainAxisSize: MainAxisSize.min,
-          children: const [
-            CatGptLogo(size: 35),
-            SizedBox(width: 8),
-            Text('CatGPT'),
+          children: [
+            CatGptLogo(size: 35, isDark: widget.isDarkMode),
+            const SizedBox(width: 8),
+            const Text('CatGPT'),
           ],
         ),
         actions: [
@@ -456,7 +494,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 _outputText = null;
               }),
               onUploadAndTranslate: () async {
-                final bytes = await pickImage();
+                final bytes = await pickImageFromGallery();
                 if (bytes == null) return;
                 await evaluateImage();
               },
@@ -469,6 +507,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               : HistoryPage(
                   translationHistory: translationHistory,
                   imageHistory: imageHistory,
+                  onClearHistory: _clearHistory,
                 ),
     );
   }
@@ -486,6 +525,37 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         
         // Result overlay when there's output text
         if (_outputText != null) _buildResultOverlay(theme),
+        
+        // Top overlay: image button
+        if (!kIsWeb)
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Container(
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.black.withOpacity(0.35),
+                    border: Border.all(
+                      color: Colors.white.withOpacity(0.6),
+                      width: 2,
+                    ),
+                  ),
+                  child: IconButton(
+                    onPressed: () async {
+                      final bytes = await pickImageFromGallery();
+                      if (bytes != null) {
+                        await evaluateImage();
+                      }
+                    },
+                    icon: const Icon(Icons.image_rounded, color: Colors.white, size: 24),
+                    tooltip: 'Select Image',
+                  ),
+                ),
+              ),
+            ),
+          ),
       ],
     );
   }
@@ -518,7 +588,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               const SizedBox(height: 12),
               ElevatedButton.icon(
                 onPressed: () async {
-                  final bytes = await pickImage();
+                  final bytes = await pickImageFromGallery();
                   if (bytes == null) return;
                   await evaluateImage();
                 },
@@ -666,6 +736,34 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   ),
                 ),
                 const SizedBox(width: 6),
+                // Share button
+                if (_pickedImageBytes != null && _outputText != null)
+                  InkWell(
+                    onTap: () async {
+                      try {
+                        await ShareService.shareInstagramStyle(
+                          imageBytes: _pickedImageBytes!,
+                          text: _outputText!,
+                          context: context,
+                        );
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error sharing: ${e.toString()}')),
+                          );
+                        }
+                      }
+                    },
+                    child: Padding(
+                      padding: const EdgeInsets.all(4.0),
+                      child: Icon(
+                        Icons.share_rounded,
+                        size: 18,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                  ),
+                const SizedBox(width: 4),
                 InkWell(
                   onTap: () {
                     _resetCameraState();
@@ -772,7 +870,7 @@ class _HomePageContent extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Translate your cat\'s vibes from photos or meows — fast.',
+                        'Translate your cat\'s vibes from a photo!',
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyMedium,
                       ),
@@ -907,6 +1005,33 @@ class _HomePageContent extends StatelessWidget {
                               ),
                             ),
                           ),
+                          const SizedBox(width: 8),
+                          if (img != null)
+                            InkWell(
+                              onTap: () async {
+                                try {
+                                  await ShareService.shareInstagramStyle(
+                                    imageBytes: img,
+                                    text: text,
+                                    context: context,
+                                  );
+                                } catch (e) {
+                                  if (context.mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error sharing: ${e.toString()}')),
+                                    );
+                                  }
+                                }
+                              },
+                              child: Padding(
+                                padding: const EdgeInsets.all(4.0),
+                                child: Icon(
+                                  Icons.share_rounded,
+                                  size: 20,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                            ),
                         ],
                       ),
                     );
@@ -957,89 +1082,4 @@ class _HomePageContent extends StatelessWidget {
     );
   }
 
-}
-
-class _ActionCard extends StatelessWidget {
-  final Color color;
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  const _ActionCard({
-    required this.color,
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(16),
-      child: Ink(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(
-            colors: [
-              color.withOpacity(isDark ? 0.2 : 0.12), 
-              color.withOpacity(isDark ? 0.08 : 0.04)
-            ],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        padding: const EdgeInsets.all(14),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 42,
-              height: 42,
-              decoration: BoxDecoration(
-                color: color.withOpacity(isDark ? 0.25 : 0.18),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: isDark ? Colors.white : Colors.black87),
-            ),
-            const SizedBox(height: 8),
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Text(
-                    title, 
-                    style: TextStyle(
-                      fontWeight: FontWeight.w700, 
-                      fontSize: 13,
-                      color: isDark ? Colors.white : Colors.black87,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle, 
-                    style: TextStyle(
-                      color: isDark ? Colors.white70 : Colors.black54, 
-                      fontSize: 11
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

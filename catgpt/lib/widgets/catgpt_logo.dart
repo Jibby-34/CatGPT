@@ -3,12 +3,13 @@ import 'package:flutter/material.dart';
 class CatGptLogo extends StatelessWidget {
   final double size;
   final Color? color;
+  final bool? isDark;
 
-  const CatGptLogo({super.key, this.size = 24, this.color});
+  const CatGptLogo({super.key, this.size = 24, this.color, this.isDark});
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDarkMode = isDark ?? Theme.of(context).brightness == Brightness.dark;
 
     final image = Image.asset(
       'assets/icons/catgpt_logo.png',
@@ -30,7 +31,7 @@ class CatGptLogo extends StatelessWidget {
       },
     );
 
-    final shouldInvert = isDark && color == null;
+    final shouldInvert = isDarkMode && color == null;
 
     return ClipRect(
       child: shouldInvert

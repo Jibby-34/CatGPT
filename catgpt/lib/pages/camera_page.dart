@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
@@ -29,6 +30,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   bool _showReasoning = false;
   final GlobalKey _storyKey = GlobalKey();
   bool _hideResultOverlay = false;
+  final ImagePicker _picker = ImagePicker();
   
   // Camera related variables
   CameraController? _cameraController;
@@ -139,6 +141,32 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     }
   }
 
+  Future<void> _pickImageFromGallery() async {
+    try {
+      final pickedFile = await _picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1600,
+        imageQuality: 85,
+      );
+      if (pickedFile == null) return;
+      
+      Uint8List bytes;
+      if (kIsWeb) {
+        bytes = await pickedFile.readAsBytes();
+      } else {
+        final file = File(pickedFile.path);
+        bytes = await file.readAsBytes();
+      }
+      
+      // Set the picked image in the parent
+      widget.onImageCaptured(bytes);
+      // Then evaluate the image
+      await widget.evaluateImage();
+    } catch (e) {
+      debugPrint('Error picking image from gallery: $e');
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -178,7 +206,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Upload image button
+                      // Image button (gallery)
                       Container(
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
@@ -189,14 +217,9 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                           ),
                         ),
                         child: IconButton(
-                          onPressed: () async {
-                            final bytes = await widget.pickImage();
-                            if (bytes != null) {
-                              await widget.evaluateImage();
-                            }
-                          },
-                          icon: const Icon(Icons.upload_file_rounded, color: Colors.white, size: 24),
-                          tooltip: 'Upload Image',
+                          onPressed: _pickImageFromGallery,
+                          icon: const Icon(Icons.image_rounded, color: Colors.white, size: 24),
+                          tooltip: 'Select Image',
                         ),
                       ),
                       const SizedBox(width: 12),
