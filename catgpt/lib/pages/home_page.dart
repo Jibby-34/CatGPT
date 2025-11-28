@@ -118,7 +118,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void _loadBannerAd() {
     final ad = BannerAd(
       size: AdSize.banner,
-      adUnitId: const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-6076315103458124/2564470304'),
+      adUnitId: const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-8779910258241973/9965802154'),
       listener: BannerAdListener(
         onAdLoaded: (ad) => setState(() {
           _isBannerLoaded = true;
@@ -135,7 +135,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   void _loadRewardedAd() {
     RewardedAd.load(
-      adUnitId: const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-6076315103458124/7232868279'),
+      adUnitId: const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-8779910258241973/3820030354'),
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
