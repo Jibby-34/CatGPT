@@ -125,7 +125,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       if (Platform.isAndroid) {
         adUnitId = const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-8779910258241973/8973110065');
       } else if (Platform.isIOS) {
-        adUnitId = const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'apple-placeholder');
+        adUnitId = const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-8779910258241973/9965802154');
       } else {
         // Fallback for other platforms
         adUnitId = const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-8779910258241973/8973110065');
@@ -179,7 +179,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       if (Platform.isAndroid) {
         adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-8779910258241973/3872170088');
       } else if (Platform.isIOS) {
-        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'apple-placeholder');
+        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-8779910258241973/3820030354');
       } else {
         // Fallback for other platforms
         adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-8779910258241973/3872170088');
