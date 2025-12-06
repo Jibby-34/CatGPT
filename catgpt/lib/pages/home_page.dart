@@ -117,9 +117,24 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
   void _loadBannerAd() {
     // Use test ad unit ID during development, replace with your real ad unit ID for production
-    final adUnitId = kDebugMode
-        ? 'ca-app-pub-3940256099942544/6300978111' // Google test banner ad unit ID
-        : const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-8779910258241973/8973110065');
+    String adUnitId;
+    if (kDebugMode) {
+      adUnitId = 'ca-app-pub-3940256099942544/6300978111'; // Google test banner ad unit ID
+    } else {
+      // Check platform and use appropriate ad unit ID
+      if (Platform.isAndroid) {
+        adUnitId = const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-8779910258241973/8973110065');
+      } else if (Platform.isIOS) {
+        adUnitId = const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'apple-placeholder');
+      } else {
+        // Fallback for other platforms
+        adUnitId = const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-8779910258241973/8973110065');
+      }
+    }
+    
+    // kDebugMode is automatically true when running 'flutter run' (debug builds)
+    // kDebugMode is automatically false when running 'flutter run --release' (release builds)
+    debugPrint('Loading banner ad in ${kDebugMode ? "DEBUG" : "RELEASE"} mode on ${Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "Unknown"} with ID: $adUnitId');
     
     final ad = BannerAd(
       size: AdSize.banner,
@@ -154,9 +169,24 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   void _loadRewardedAd() {
     // Use test ad unit ID during development, replace with your real ad unit ID for production
-    final adUnitId = kDebugMode
-        ? 'ca-app-pub-3940256099942544/5224354917' // Google test rewarded ad unit ID
-        : const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-8779910258241973/3872170088');
+    // kDebugMode is automatically true when running 'flutter run' or in debug builds
+    // kDebugMode is automatically false when running 'flutter run --release' or in release builds
+    String adUnitId;
+    if (kDebugMode) {
+      adUnitId = 'ca-app-pub-3940256099942544/5224354917'; // Google test rewarded ad unit ID
+    } else {
+      // Check platform and use appropriate ad unit ID
+      if (Platform.isAndroid) {
+        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-8779910258241973/3872170088');
+      } else if (Platform.isIOS) {
+        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'apple-placeholder');
+      } else {
+        // Fallback for other platforms
+        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-8779910258241973/3872170088');
+      }
+    }
+    
+    debugPrint('Loading rewarded ad in ${kDebugMode ? "DEBUG" : "RELEASE"} mode on ${Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "Unknown"} with ID: $adUnitId');
     
     RewardedAd.load(
       adUnitId: adUnitId,

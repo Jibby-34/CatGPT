@@ -7,8 +7,7 @@ Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Initialize Google Mobile Ads SDK
-  final initializationStatus = await MobileAds.instance.initialize();
-  debugPrint('AdMob initialization status: ${initializationStatus.adapterStatuses}');
+  await MobileAds.instance.initialize();
 
   // Load saved theme mode before app starts
   final prefs = await SharedPreferences.getInstance();
