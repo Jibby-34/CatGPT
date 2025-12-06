@@ -237,15 +237,14 @@ class ShareService {
         if (logoImage != null) {
           logoImage = img.copyResize(logoImage, width: finalLogoSize, height: finalLogoSize);
           
-          // Invert logo colors
+          // Recolor logo: set all non-transparent pixels to white, preserve alpha
           for (int y = 0; y < logoImage.height; y++) {
             for (int x = 0; x < logoImage.width; x++) {
               final pixel = logoImage.getPixel(x, y);
-              // Invert RGB values: new = 255 - old
-              final invertedR = 255 - pixel.r.toInt();
-              final invertedG = 255 - pixel.g.toInt();
-              final invertedB = 255 - pixel.b.toInt();
-              logoImage.setPixel(x, y, img.ColorRgb8(invertedR, invertedG, invertedB));
+              // If the pixel is not fully transparent (alpha > 0)
+              if (pixel.a > 0) {
+                logoImage.setPixel(x, y, img.ColorRgba8(255, 255, 255, pixel.a.toInt()));
+              }
             }
           }
         }

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:catspeak/widgets/catgpt_logo.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
@@ -116,16 +116,35 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     await _prefs!.setStringList('imageHistory', imageHistory.map((b) => b == null ? '' : base64Encode(b)).toList());
   }
   void _loadBannerAd() {
+    // Use test ad unit ID during development, replace with your real ad unit ID for production
+    final adUnitId = kDebugMode
+        ? 'ca-app-pub-3940256099942544/6300978111' // Google test banner ad unit ID
+        : const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-8779910258241973/8973110065');
+    
     final ad = BannerAd(
       size: AdSize.banner,
-      adUnitId: const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-8779910258241973/9965802154'),
+      adUnitId: adUnitId,
       listener: BannerAdListener(
-        onAdLoaded: (ad) => setState(() {
-          _isBannerLoaded = true;
-        }),
-        onAdFailedToLoad: (ad, error) {
-          ad.dispose();
+        onAdLoaded: (ad) {
+          debugPrint('Banner ad loaded successfully');
+          if (mounted) {
+            setState(() {
+              _isBannerLoaded = true;
+            });
+          }
         },
+        onAdFailedToLoad: (ad, error) {
+          debugPrint('Banner ad failed to load: ${error.code} - ${error.message}');
+          debugPrint('Domain: ${error.domain}, ResponseInfo: ${error.responseInfo}');
+          ad.dispose();
+          if (mounted) {
+            setState(() {
+              _isBannerLoaded = false;
+            });
+          }
+        },
+        onAdOpened: (ad) => debugPrint('Banner ad opened'),
+        onAdClosed: (ad) => debugPrint('Banner ad closed'),
       ),
       request: const AdRequest(),
     );
@@ -134,14 +153,22 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _loadRewardedAd() {
+    // Use test ad unit ID during development, replace with your real ad unit ID for production
+    final adUnitId = kDebugMode
+        ? 'ca-app-pub-3940256099942544/5224354917' // Google test rewarded ad unit ID
+        : const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-8779910258241973/3872170088');
+    
     RewardedAd.load(
-      adUnitId: const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-8779910258241973/3820030354'),
+      adUnitId: adUnitId,
       request: const AdRequest(),
       rewardedAdLoadCallback: RewardedAdLoadCallback(
         onAdLoaded: (ad) {
+          debugPrint('Rewarded ad loaded successfully');
           _rewardedAd = ad;
         },
         onAdFailedToLoad: (error) {
+          debugPrint('Rewarded ad failed to load: ${error.code} - ${error.message}');
+          debugPrint('Domain: ${error.domain}, ResponseInfo: ${error.responseInfo}');
           _rewardedAd = null;
         },
       ),
@@ -324,7 +351,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final text = data['text'] as String?;
-        if (text == null) throw Exception('Invalid server response');
+        if (text == null) {
+          debugPrint('Invalid server response. Body: \n${response.body}');
+          throw Exception('Invalid server response');
+        }
         setState(() => _outputText = text);
 
         if (!text.contains('No cat detected!')) {
@@ -332,6 +362,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           await _showRewardedAdIfAvailable();
         }
       } else {
+        debugPrint('Server error response (${response.statusCode}): \n${response.body}');
         if (mounted) ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text('Server Error: ${response.statusCode}')));
       }
