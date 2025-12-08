@@ -268,6 +268,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _saveHistory();
   }
 
+  void _deleteHistoryEntry(int index) {
+    if (index >= 0 && index < translationHistory.length) {
+      setState(() {
+        translationHistory.removeAt(index);
+        if (index < imageHistory.length) {
+          imageHistory.removeAt(index);
+        }
+      });
+      _saveHistory();
+    }
+  }
+
   Future<Uint8List?> pickImage() async {
     try {
       final pickedFile = await _picker.pickImage(
@@ -374,7 +386,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
       final body = jsonEncode({
         "imageBase64": base64Image,
-        "prompt": "Using the given image, translate the cat's body langauge and enviornment in a dialogue-like, funny/meme phrase (no one-word replies). If there is a signifcant object in the image (ex: shoes, food bowl, car) include the object in the humor of your translation. Basic things like the ground or other things such as that do not count as significant objects, do not include these in your translation, If there is not a signifcant object, simply translate what the body language is saying. DO NOT USE ANY HUMAN NAMES IN THE TRANSLATION. DO NOT INCLUDE OBJECT THAT ARE NOT IN THE IMAGE IN THE TRANSLATION. If the cat in the image is a human with cat features, mention this detail in the translation. If the cat is a human female with cat features and the image is sexually suggestive (ex: skin showing or exaggerated porportions), then make sure to include this detail and mild sexual suggestiveness in your response (using keywords like catgirl). If the cat is irregular in any way (such as a meme cat with a human face), mention this in the translation Use few emojis in the translation. All text must stay on one line. If not a cat, say 'No cat detected!' only. Add reasoning in one [] with exactly 2 adjectives. DO NOT INCLUDE REASONING IF THERE IS NO CAT IN THE IMAGE. TREAT EACH TRANSLATION AS ITS OWN. DO NOT REFRENCE OTHER TRANSLATIONS OR USE ANY CONTEXT GATHERED OTHER THAN THE CURRENT IMAGE. ONLY INCLUDE THE TRANSLATION AND REASONING, NO OTHER WORDS ALLOWED!!! DO NOT MAKE ANY JOKES ABOUT GAMES ON A PHONE"
+        "prompt": """You will be shown a single image. If the image does NOT contain a cat, output exactly:
+            No cat detected!
+
+            If the image DOES contain a cat, produce a single-line, dialogue-style humorous translation of the cat's body language and environment. Requirements:
+            • Do not use any human names.  
+            • Include any significant object that appears in the image (examples: shoes, food bowl, car). Do NOT mention basic background elements (ground, wall) unless they are clearly significant.  
+            • If there is no significant object, translate only the cat's body language.  
+            • If the cat is a human with cat features, state that explicitly. If the cat is a human female with cat features and the image is even slightly sexually suggestive (skin showing or exaggerated proportions), include mild sexual suggestiveness and refrence the term "catgirl."
+            • If the cat is irregular (e.g., meme cat with a human face), mention that.  
+            • Use few emojis (max 2).  
+            • Keep all output on one line. No additional text.  
+            • After the translation, append one bracketed short reasoning token containing exactly two adjectives (for example: [sleepy, smug]). Example full output format:
+            <translation sentence> [adjective1, adjective2]
+            • All translations MUST BE IN FIRST PERSON.
+            • ABSOLUTLEY DO NOT include anything but the translation and reasoning"""
       });
 
       final response = await http.post(url, headers: headers, body: body);
@@ -433,6 +459,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   builder: (context) => SettingsPage(
                     isDarkMode: widget.isDarkMode,
                     onThemeChanged: widget.onThemeChanged,
+                    onClearHistory: _clearHistory,
                   ),
                 ),
               );
@@ -581,7 +608,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               : HistoryPage(
                   translationHistory: translationHistory,
                   imageHistory: imageHistory,
-                  onClearHistory: _clearHistory,
+                  onDeleteEntry: _deleteHistoryEntry,
                 ),
     );
   }

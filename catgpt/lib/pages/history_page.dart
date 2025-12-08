@@ -5,13 +5,13 @@ import '../services/share_service.dart';
 class HistoryPage extends StatefulWidget {
   final List<String> translationHistory;
   final List<Uint8List?> imageHistory;
-  final VoidCallback onClearHistory;
+  final Function(int) onDeleteEntry;
 
   const HistoryPage({
     super.key,
     required this.translationHistory,
     required this.imageHistory,
-    required this.onClearHistory,
+    required this.onDeleteEntry,
   });
 
   @override
@@ -80,10 +80,6 @@ class _HistoryPageState extends State<HistoryPage> {
         final horizontalPadding = isWide ? 28.0 : 12.0;
         final tileSide = isWide ? 120.0 : 92.0;
 
-        // Show button if: content doesn't fill screen OR user scrolled to bottom
-        final shouldShowButton = widget.translationHistory.isNotEmpty && 
-            (!_isScrollable || _isAtBottom);
-
         return Column(
           children: [
             Expanded(
@@ -92,7 +88,7 @@ class _HistoryPageState extends State<HistoryPage> {
                   horizontalPadding, 
                   12, 
                   horizontalPadding, 
-                  shouldShowButton ? 12 : 12
+                  12
                 ),
                 child: ListView.builder(
                   controller: _scrollController,
@@ -185,6 +181,43 @@ class _HistoryPageState extends State<HistoryPage> {
                                 ),
                                 const SizedBox(width: 4),
                               ],
+                              InkWell(
+                                onTap: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('Delete Entry'),
+                                      content: const Text('Are you sure you want to delete this entry?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.of(ctx).pop(),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            widget.onDeleteEntry(reverseIndex);
+                                            Navigator.of(ctx).pop();
+                                          },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.red,
+                                            foregroundColor: Colors.white,
+                                          ),
+                                          child: const Text('Delete'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Icon(
+                                    Icons.delete_outline,
+                                    size: 20,
+                                    color: Theme.of(context).colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 4),
                               Icon(
                                 Icons.chevron_right_rounded,
                                 // Follow theme: use a white-ish icon in dark mode, keep muted dark color in light mode
@@ -201,57 +234,6 @@ class _HistoryPageState extends State<HistoryPage> {
                 ),
               ),
             ),
-            // Clear history button - appears at bottom when appropriate
-            if (shouldShowButton)
-              Padding(
-                padding: EdgeInsets.fromLTRB(horizontalPadding, 8, horizontalPadding, 20),
-                child: Center(
-                  child: ElevatedButton(
-                    onPressed: () {
-                      showDialog(
-                        context: context,
-                        builder: (ctx) => AlertDialog(
-                          title: const Text('Clear History'),
-                          content: const Text('Are you sure you want to clear all history? This action cannot be undone.'),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(ctx).pop(),
-                              child: const Text('Cancel'),
-                            ),
-                            ElevatedButton(
-                              onPressed: () {
-                                widget.onClearHistory();
-                                Navigator.of(ctx).pop();
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.red,
-                                foregroundColor: Colors.white,
-                              ),
-                              child: const Text('Clear'),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.red,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    child: const Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.delete_outline, size: 20),
-                        SizedBox(width: 8),
-                        Text('Clear History', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
           ],
         );
       },
