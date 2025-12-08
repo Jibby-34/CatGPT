@@ -350,7 +350,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     return Positioned(
       left: 14,
       right: 14,
-      bottom: 72, // sits just above the capture button
+      bottom: 110, // sits just above the capture button
       child: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: isWide ? 520 : 520),
@@ -445,7 +445,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     return Align(
       alignment: Alignment.bottomCenter,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 84.0), // centered just above result box
+        padding: const EdgeInsets.only(bottom: 120.0), // centered just above result box
         child: Material(
           elevation: 12,
           color: Colors.transparent,

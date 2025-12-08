@@ -11,6 +11,7 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:camera/camera.dart';
 
 import 'history_page.dart';
+import 'settings_page.dart';
 import '../services/share_service.dart';
 
 class HomePage extends StatefulWidget {
@@ -373,7 +374,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
       final body = jsonEncode({
         "imageBase64": base64Image,
-        "prompt": "Describe the cat's body language in a short, dialogue-like, funny/meme phrase (no one-word replies). Use few emojis. All text must stay on one line. If not a cat, say 'No cat detected!' only. Add reasoning in one [] with exactly 2 adjectives. Do not include reasoning if there is no cat detected."
+        "prompt": "Using the given image, translate the cat's body langauge and enviornment in a dialogue-like, funny/meme phrase (no one-word replies). If there is a signifcant object in the image (ex: shoes, food bowl, car) include the object in the humor of your translation. Basic things like the ground or other things such as that do not count as significant objects, do not include these in your translation, If there is not a signifcant object, simply translate what the body language is saying. DO NOT USE ANY HUMAN NAMES IN THE TRANSLATION. DO NOT INCLUDE OBJECT THAT ARE NOT IN THE IMAGE IN THE TRANSLATION. If the cat in the image is a human with cat features, mention this detail in the translation. If the cat is a human female with cat features and the image is sexually suggestive (ex: skin showing or exaggerated porportions), then make sure to include this detail and mild sexual suggestiveness in your response (using keywords like catgirl). If the cat is irregular in any way (such as a meme cat with a human face), mention this in the translation Use few emojis in the translation. All text must stay on one line. If not a cat, say 'No cat detected!' only. Add reasoning in one [] with exactly 2 adjectives. DO NOT INCLUDE REASONING IF THERE IS NO CAT IN THE IMAGE. TREAT EACH TRANSLATION AS ITS OWN. DO NOT REFRENCE OTHER TRANSLATIONS OR USE ANY CONTEXT GATHERED OTHER THAN THE CURRENT IMAGE. ONLY INCLUDE THE TRANSLATION AND REASONING, NO OTHER WORDS ALLOWED!!! DO NOT MAKE ANY JOKES ABOUT GAMES ON A PHONE"
       });
 
       final response = await http.post(url, headers: headers, body: body);
@@ -426,10 +427,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         actions: [
           IconButton(
             onPressed: () {
-              widget.onThemeChanged(!widget.isDarkMode);
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => SettingsPage(
+                    isDarkMode: widget.isDarkMode,
+                    onThemeChanged: widget.onThemeChanged,
+                  ),
+                ),
+              );
             },
-            icon: Icon(widget.isDarkMode ? Icons.light_mode : Icons.dark_mode),
-            tooltip: widget.isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode',
+            icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
           ),
         ],
       ),
@@ -469,15 +478,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         ],
       ),
       floatingActionButton: _currentIndex == 1
-          ? FloatingActionButton(
-              onPressed: _onTakePhoto,
-              tooltip: 'Take Photo',
-              elevation: 6,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              child: const Icon(Icons.camera_alt_rounded, size: 28),
+          ? SizedBox(
+              width: 72,
+              height: 72,
+              child: FloatingActionButton(
+                onPressed: _onTakePhoto,
+                tooltip: 'Take Photo',
+                elevation: 6,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                child: const Icon(Icons.camera_alt_rounded, size: 40),
+              ),
             )
                   : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       bottomNavigationBar: BottomAppBar(
         color: theme.colorScheme.surface,
         elevation: 0,
@@ -726,7 +739,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return Positioned(
       left: 14,
       right: 14,
-      bottom: 72, // sits just above the capture button
+      bottom: 110, // sits just above the capture button
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
