@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -9,6 +10,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:camera/camera.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
+import '../constants/purchase_constants.dart';
 
 import 'history_page.dart';
 import 'settings_page.dart';
@@ -36,12 +39,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   BannerAd? _bannerAd;
   bool _isBannerLoaded = false;
   RewardedAd? _rewardedAd;
+  bool _adsRemoved = false;
 
   List<String> translationHistory = [];
   List<Uint8List?> imageHistory = [];
 
   final ImagePicker _picker = ImagePicker();
   SharedPreferences? _prefs;
+  
+  // In-app purchase
+  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
+  StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   
   // Camera related variables
   CameraController? _cameraController;
@@ -53,15 +61,28 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _loadPrefsAndHistory();
-    _loadBannerAd();
-    _loadRewardedAd();
+    _purchaseSubscription = _inAppPurchase.purchaseStream.listen(
+      _onPurchaseUpdated,
+      onError: (error) => debugPrint('Purchase stream error: $error'),
+    );
+    _initializeState();
+  }
+
+  Future<void> _initializeState() async {
+    await _loadPrefsAndHistory();
+    // Verify purchase status with store before trusting SharedPreferences
+    await _verifyPurchaseStatus();
+    if (!_adsRemoved) {
+      _loadBannerAd();
+      _loadRewardedAd();
+    }
     _initializeCamera();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _purchaseSubscription?.cancel();
     _cameraController?.dispose();
     _bannerAd?.dispose();
     _rewardedAd?.dispose();
@@ -86,6 +107,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _prefs = await SharedPreferences.getInstance();
       final texts = _prefs!.getStringList('translationHistory') ?? [];
       final imagesB64 = _prefs!.getStringList('imageHistory') ?? [];
+      // Start with false - will verify with store
+      _adsRemoved = false;
       
       if (mounted) {
         setState(() {
@@ -106,6 +129,97 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
+  Future<void> _verifyPurchaseStatus() async {
+    try {
+      final available = await _inAppPurchase.isAvailable();
+      if (!available) {
+        debugPrint('Store not available for purchase verification');
+        // If store unavailable, clear any stale purchase data
+        final hadStaleData = _prefs?.getBool(noAdsPrefsKey) == true;
+        if (hadStaleData) {
+          await _prefs?.setBool(noAdsPrefsKey, false);
+          debugPrint('Cleared stale purchase data (store unavailable)');
+        }
+        return;
+      }
+
+      // Check if SharedPreferences claims a purchase exists
+      final prefsClaimsPurchase = _prefs?.getBool(noAdsPrefsKey) == true;
+      
+      // Restore purchases to verify actual purchase status
+      // This will fire events through the purchase stream
+      await _inAppPurchase.restorePurchases();
+      
+      // Wait for restore to process
+      await Future.delayed(const Duration(milliseconds: 1000));
+      
+      // If SharedPreferences claimed a purchase but store doesn't confirm, clear it
+      if (prefsClaimsPurchase && !_adsRemoved) {
+        debugPrint('SharedPreferences claimed purchase but store does not confirm - clearing');
+        await _prefs?.setBool(noAdsPrefsKey, false);
+      }
+    } catch (e) {
+      debugPrint('Error verifying purchase status: $e');
+      // On error, clear any stale purchase data
+      if (_prefs?.getBool(noAdsPrefsKey) == true) {
+        await _prefs?.setBool(noAdsPrefsKey, false);
+        debugPrint('Cleared stale purchase data (verification error)');
+      }
+    }
+  }
+
+  void _onPurchaseUpdated(List<PurchaseDetails> purchases) {
+    bool foundNoAdsPurchase = false;
+    
+    for (final purchase in purchases) {
+      if (purchase.productID != noAdsProductId) continue;
+
+      switch (purchase.status) {
+        case PurchaseStatus.purchased:
+        case PurchaseStatus.restored:
+          foundNoAdsPurchase = true;
+          debugPrint('No Ads purchase verified: ${purchase.status}');
+          if (purchase.pendingCompletePurchase) {
+            _inAppPurchase.completePurchase(purchase);
+          }
+          break;
+        default:
+          break;
+      }
+    }
+
+    // Only set ads removed if store confirms the purchase
+    if (foundNoAdsPurchase) {
+      if (!_adsRemoved) {
+        debugPrint('Setting ads removed to true based on store confirmation');
+        _updateAdsRemoved(true);
+      }
+    }
+    // Note: We don't clear _adsRemoved here if no purchase found,
+    // because this could be called for other purchases or during normal purchase flow.
+    // The verification logic in _verifyPurchaseStatus handles clearing stale data.
+  }
+
+  Future<void> _updateAdsRemoved(bool value) async {
+    if (_adsRemoved == value) return;
+    setState(() {
+      _adsRemoved = value;
+      if (value) {
+        _bannerAd?.dispose();
+        _bannerAd = null;
+        _isBannerLoaded = false;
+        _rewardedAd?.dispose();
+        _rewardedAd = null;
+      }
+    });
+    await _prefs?.setBool(noAdsPrefsKey, value);
+
+    if (!value) {
+      _loadBannerAd();
+      _loadRewardedAd();
+    }
+  }
+
   Future<void> _saveHistory() async {
     if (_prefs == null) return;
     // Normalize list lengths
@@ -117,6 +231,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     await _prefs!.setStringList('imageHistory', imageHistory.map((b) => b == null ? '' : base64Encode(b)).toList());
   }
   void _loadBannerAd() {
+    if (_adsRemoved) return;
     // Use test ad unit ID during development, replace with your real ad unit ID for production
     String adUnitId;
     if (kDebugMode) {
@@ -169,6 +284,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   void _loadRewardedAd() {
+    if (_adsRemoved) return;
     // Use test ad unit ID during development, replace with your real ad unit ID for production
     // kDebugMode is automatically true when running 'flutter run' or in debug builds
     // kDebugMode is automatically false when running 'flutter run --release' or in release builds
@@ -393,14 +509,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             • Do not use any human names.  
             • Include any significant object that appears in the image (examples: shoes, food bowl, car). Do NOT mention basic background elements (ground, wall) unless they are clearly significant.  
             • If there is no significant object, translate only the cat's body language.  
-            • If the cat is a human with cat features, state that explicitly. If the cat is a human female with cat features and the image is even slightly sexually suggestive (skin showing or exaggerated proportions), include mild sexual suggestiveness and refrence the term "catgirl."
-            • If the cat is irregular (e.g., meme cat with a human face), mention that.  
+            • If the cat is a human with cat features, you may use that as part of the translation's joke. If the cat is a human female with cat features and the image is determined to be even a tiny bit suggestive (ex: skin showing, exaggerated proportions, etc.), you MUST include sexual suggestiveness AND explicit language relating to such suggestions.
+            • If the cat is irregular (e.g., meme cat with a human face), you may utilize this in the translation's joke.  
             • Use few emojis (max 2).  
             • Keep all output on one line. No additional text.  
             • After the translation, append one bracketed short reasoning token containing exactly two adjectives (for example: [sleepy, smug]). Example full output format:
             <translation sentence> [adjective1, adjective2]
             • All translations MUST BE IN FIRST PERSON.
-            • ABSOLUTLEY DO NOT include anything but the translation and reasoning"""
+            • ABSOLUTLEY DO NOT include anything but the translation and reasoning
+            • Make humor a priority in your translation""
+            • If there is not a cat in the image, you must say EXACTLY "No cat detected!"""
       });
 
       final response = await http.post(url, headers: headers, body: body);
@@ -416,7 +534,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
         if (!text.contains('No cat detected!')) {
           _addHistoryEntry(text: text, imageBytes: _pickedImageBytes);
-          await _showRewardedAdIfAvailable();
+          if (!_adsRemoved) {
+            await _showRewardedAdIfAvailable();
+          }
         }
       } else {
         debugPrint('Server error response (${response.statusCode}): \n${response.body}');
@@ -460,6 +580,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     isDarkMode: widget.isDarkMode,
                     onThemeChanged: widget.onThemeChanged,
                     onClearHistory: _clearHistory,
+                    adsRemoved: _adsRemoved,
+                    onAdsStatusChanged: _updateAdsRemoved,
                   ),
                 ),
               );
@@ -474,15 +596,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           // Main content area
           SafeArea(child: Column(
             children: [
-              // Add top padding to account for banner ad
-              if (_isBannerLoaded && _bannerAd != null)
-                SizedBox(height: _bannerAd!.size.height.toDouble()),
+              // Add top padding to account for banner ad or provide fallback spacing on camera page
+              Builder(
+                builder: (context) {
+                  final double topSpacer = (!_adsRemoved && _isBannerLoaded && _bannerAd != null)
+                      ? _bannerAd!.size.height.toDouble()
+                      : (_currentIndex == 1 ? 16.0 : 0.0);
+                  return topSpacer > 0 ? SizedBox(height: topSpacer) : const SizedBox.shrink();
+                },
+              ),
               // Main content with adjusted spacing
               Expanded(child: _buildBody()),
             ],
           )),
           // Banner ad positioned at the top with higher z-index
-          if (_isBannerLoaded && _bannerAd != null)
+          if (!_adsRemoved && _isBannerLoaded && _bannerAd != null)
             Positioned(
               top: 0,
               left: 0,
