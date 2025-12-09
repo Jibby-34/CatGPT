@@ -5,13 +5,17 @@ import '../services/share_service.dart';
 class HistoryPage extends StatefulWidget {
   final List<String> translationHistory;
   final List<Uint8List?> imageHistory;
+  final Set<int> favorites;
   final Function(int) onDeleteEntry;
+  final Function(int) onToggleFavorite;
 
   const HistoryPage({
     super.key,
     required this.translationHistory,
     required this.imageHistory,
+    required this.favorites,
     required this.onDeleteEntry,
+    required this.onToggleFavorite,
   });
 
   @override
@@ -22,6 +26,7 @@ class _HistoryPageState extends State<HistoryPage> {
   final ScrollController _scrollController = ScrollController();
   bool _isAtBottom = false;
   bool _isScrollable = false;
+  String _filterMode = 'All History'; // 'All History' or 'Favorites'
 
   @override
   void initState() {
@@ -63,14 +68,36 @@ class _HistoryPageState extends State<HistoryPage> {
     }
   }
 
+  List<int> _getFilteredIndices() {
+    if (_filterMode == 'Favorites') {
+      // Return indices that are in favorites, in reverse order (newest first)
+      final favoriteIndices = widget.favorites.toList()..sort((a, b) => b.compareTo(a));
+      return favoriteIndices.where((idx) => idx >= 0 && idx < widget.translationHistory.length).toList();
+    } else {
+      // Return all indices in reverse order
+      return List.generate(widget.translationHistory.length, (i) => widget.translationHistory.length - 1 - i);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    if (widget.translationHistory.isEmpty) {
-      return const Center(
-        child: Text(
-          "📜 No history yet...",
-          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-        ),
+    final filteredIndices = _getFilteredIndices();
+
+    if (widget.translationHistory.isEmpty || filteredIndices.isEmpty) {
+      return Column(
+        children: [
+          _buildFilterDropdown(),
+          Expanded(
+            child: Center(
+              child: Text(
+                _filterMode == 'Favorites' 
+                    ? "❤️ No favorites yet..."
+                    : "📜 No history yet...",
+                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+            ),
+          ),
+        ],
       );
     }
 
@@ -82,6 +109,7 @@ class _HistoryPageState extends State<HistoryPage> {
 
         return Column(
           children: [
+            _buildFilterDropdown(),
             Expanded(
               child: Padding(
                 padding: EdgeInsets.fromLTRB(
@@ -93,10 +121,9 @@ class _HistoryPageState extends State<HistoryPage> {
                 child: ListView.builder(
                   controller: _scrollController,
                   physics: const BouncingScrollPhysics(),
-                  itemCount: widget.translationHistory.length,
+                  itemCount: filteredIndices.length,
                   itemBuilder: (context, index) {
-                    final len = widget.translationHistory.length;
-                    final reverseIndex = len - 1 - index;
+                    final reverseIndex = filteredIndices[index];
 
                     final safeImageIndex = reverseIndex < widget.imageHistory.length ? reverseIndex : -1;
 
@@ -153,34 +180,24 @@ class _HistoryPageState extends State<HistoryPage> {
                                   ],
                                 ),
                               ),
-                              if (imageBytes != null) ...[
-                                InkWell(
-                                  onTap: () async {
-                                    try {
-                                      await ShareService.shareInstagramStyle(
-                                        imageBytes: imageBytes,
-                                        text: translation,
-                                        context: context,
-                                      );
-                                    } catch (e) {
-                                      if (context.mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(content: Text('Error sharing: ${e.toString()}')),
-                                        );
-                                      }
-                                    }
-                                  },
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Icon(
-                                      Icons.share_rounded,
-                                      size: 20,
-                                      color: Theme.of(context).colorScheme.primary,
-                                    ),
+                              InkWell(
+                                onTap: () {
+                                  widget.onToggleFavorite(reverseIndex);
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.all(8.0),
+                                  child: Icon(
+                                    widget.favorites.contains(reverseIndex)
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    size: 20,
+                                    color: widget.favorites.contains(reverseIndex)
+                                        ? Colors.red
+                                        : Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
                                   ),
                                 ),
-                                const SizedBox(width: 4),
-                              ],
+                              ),
+                              const SizedBox(width: 4),
                               InkWell(
                                 onTap: () {
                                   showDialog(
@@ -245,6 +262,40 @@ class _HistoryPageState extends State<HistoryPage> {
     if (idx == -1) return text.length > 60 ? '${text.substring(0, 60)}…' : text;
     final p = text.substring(0, idx).trim();
     return p.length > 60 ? '${p.substring(0, 60)}…' : p;
+  }
+
+  Widget _buildFilterDropdown() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+      child: Row(
+        children: [
+          const SizedBox(width: 4),
+          const Icon(Icons.filter_list, size: 20),
+          const SizedBox(width: 8),
+          DropdownButton<String>(
+            value: _filterMode,
+            underline: Container(),
+            items: const [
+              DropdownMenuItem(
+                value: 'All History',
+                child: Text('All History'),
+              ),
+              DropdownMenuItem(
+                value: 'Favorites',
+                child: Text('Favorites'),
+              ),
+            ],
+            onChanged: (String? newValue) {
+              if (newValue != null) {
+                setState(() {
+                  _filterMode = newValue;
+                });
+              }
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   String _previewReason(String text) {

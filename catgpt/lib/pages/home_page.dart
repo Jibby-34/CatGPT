@@ -43,6 +43,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   List<String> translationHistory = [];
   List<Uint8List?> imageHistory = [];
+  Set<int> favorites = {}; // Track favorited entry indices
 
   final ImagePicker _picker = ImagePicker();
   SharedPreferences? _prefs;
@@ -107,6 +108,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       _prefs = await SharedPreferences.getInstance();
       final texts = _prefs!.getStringList('translationHistory') ?? [];
       final imagesB64 = _prefs!.getStringList('imageHistory') ?? [];
+      final favoritesList = _prefs!.getStringList('favorites') ?? [];
       // Start with false - will verify with store
       _adsRemoved = false;
       
@@ -122,6 +124,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               return null;
             }
           }).toList();
+          favorites = favoritesList.map((s) => int.tryParse(s) ?? -1).where((i) => i >= 0).toSet();
         });
       }
     } catch (e) {
@@ -229,6 +232,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     await _prefs!.setStringList('translationHistory', translationHistory);
     await _prefs!.setStringList('imageHistory', imageHistory.map((b) => b == null ? '' : base64Encode(b)).toList());
+    await _prefs!.setStringList('favorites', favorites.map((i) => i.toString()).toList());
   }
   void _loadBannerAd() {
     if (_adsRemoved) return;
@@ -380,6 +384,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     setState(() {
       translationHistory.clear();
       imageHistory.clear();
+      favorites.clear();
     });
     _saveHistory();
   }
@@ -391,9 +396,32 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         if (index < imageHistory.length) {
           imageHistory.removeAt(index);
         }
+        // Remove favorite if it exists, and adjust indices for entries after the deleted one
+        favorites.remove(index);
+        // Adjust favorite indices for entries after the deleted one
+        final adjustedFavorites = <int>{};
+        for (final favIndex in favorites) {
+          if (favIndex > index) {
+            adjustedFavorites.add(favIndex - 1);
+          } else {
+            adjustedFavorites.add(favIndex);
+          }
+        }
+        favorites = adjustedFavorites;
       });
       _saveHistory();
     }
+  }
+
+  void _toggleFavorite(int index) {
+    setState(() {
+      if (favorites.contains(index)) {
+        favorites.remove(index);
+      } else {
+        favorites.add(index);
+      }
+    });
+    _saveHistory();
   }
 
   Future<Uint8List?> pickImage() async {
@@ -502,23 +530,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
       final body = jsonEncode({
         "imageBase64": base64Image,
-        "prompt": """You will be shown a single image. If the image does NOT contain a cat, output exactly:
-            No cat detected!
-
-            If the image DOES contain a cat, produce a single-line, dialogue-style humorous translation of the cat's body language and environment. Requirements:
-            • Do not use any human names.  
-            • Include any significant object that appears in the image (examples: shoes, food bowl, car). Do NOT mention basic background elements (ground, wall) unless they are clearly significant.  
-            • If there is no significant object, translate only the cat's body language.  
-            • If the cat is a human with cat features, the translation should be absurd, but if the cat is a human female with cat features and the image is suggestive (ex: skin showing, exaggerated proportions, etc.), you MUST include sexual contemt AND explicit language relating to such.
-            • Use few emojis (max 2).  
-            • Keep all output on one line. No additional text.  
-            • After the translation, append one bracketed short reasoning token containing exactly two adjectives (for example: [sleepy, smug]). Example full output format:
-            <translation sentence> [adjective1, adjective2]
-            • All translations MUST BE IN FIRST PERSON.
-            • ABSOLUTLEY DO NOT include anything but the translation and reasoning
-            • Make humor a priority in your translation""
-            • If there is not a cat in the image, you must say EXACTLY "No cat detected!
-            • The translated phrase should be SHORT (a short phrase max) and FUNNY"""
+        // prompt removed
       });
 
       final response = await http.post(url, headers: headers, body: body);
@@ -526,14 +538,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final text = data['text'] as String?;
+
         if (text == null) {
           debugPrint('Invalid server response. Body: \n${response.body}');
           throw Exception('Invalid server response');
         }
+
         setState(() => _outputText = text);
 
         if (!text.contains('No cat detected!')) {
           _addHistoryEntry(text: text, imageBytes: _pickedImageBytes);
+
           if (!_adsRemoved) {
             await _showRewardedAdIfAvailable();
           }
@@ -736,7 +751,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               : HistoryPage(
                   translationHistory: translationHistory,
                   imageHistory: imageHistory,
+                  favorites: favorites,
                   onDeleteEntry: _deleteHistoryEntry,
+                  onToggleFavorite: _toggleFavorite,
                 ),
     );
   }
