@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
+// import 'package:in_app_purchase/in_app_purchase.dart';
 import 'tutorial_page.dart';
-import '../constants/purchase_constants.dart';
+// import '../constants/purchase_constants.dart';
 
 class SettingsPage extends StatefulWidget {
   final bool isDarkMode;
@@ -29,140 +29,140 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late bool _isDarkMode;
   late bool _adsRemoved;
-  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
-  StreamSubscription<List<PurchaseDetails>>? _subscription;
-  ProductDetails? _noAdsProduct;
-  bool _isStoreAvailable = false;
-  bool _isLoadingProducts = false;
-  bool _purchasePending = false;
-  String? _purchaseError;
+  // final InAppPurchase _inAppPurchase = InAppPurchase.instance;
+  // StreamSubscription<List<PurchaseDetails>>? _subscription;
+  // ProductDetails? _noAdsProduct;
+  // bool _isStoreAvailable = false;
+  // bool _isLoadingProducts = false;
+  // bool _purchasePending = false;
+  // String? _purchaseError;
 
   @override
   void initState() {
     super.initState();
     _isDarkMode = widget.isDarkMode;
     _adsRemoved = widget.adsRemoved;
-    _subscription = _inAppPurchase.purchaseStream.listen(
-      _onPurchaseUpdated,
-      onError: _handlePurchaseError,
-    );
-    _initStoreInfo();
+    // _subscription = _inAppPurchase.purchaseStream.listen(
+    //   _onPurchaseUpdated,
+    //   onError: _handlePurchaseError,
+    // );
+    // _initStoreInfo();
   }
 
   @override
   void dispose() {
-    _subscription?.cancel();
+    // _subscription?.cancel();
     super.dispose();
   }
 
-  void _handlePurchaseError(Object error) {
-    if (!mounted) return;
-    setState(() {
-      _purchaseError = error.toString();
-      _purchasePending = false;
-    });
-  }
+  // void _handlePurchaseError(Object error) {
+  //   if (!mounted) return;
+  //   setState(() {
+  //     _purchaseError = error.toString();
+  //     _purchasePending = false;
+  //   });
+  // }
 
-  Future<void> _initStoreInfo() async {
-    setState(() {
-      _isLoadingProducts = true;
-      _purchaseError = null;
-    });
+  // Future<void> _initStoreInfo() async {
+  //   setState(() {
+  //     _isLoadingProducts = true;
+  //     _purchaseError = null;
+  //   });
 
-    final available = await _inAppPurchase.isAvailable();
-    if (!mounted) return;
-    setState(() {
-      _isStoreAvailable = available;
-    });
-    if (!available) {
-      setState(() => _isLoadingProducts = false);
-      return;
-    }
+  //   final available = await _inAppPurchase.isAvailable();
+  //   if (!mounted) return;
+  //   setState(() {
+  //     _isStoreAvailable = available;
+  //   });
+  //   if (!available) {
+  //     setState(() => _isLoadingProducts = false);
+  //     return;
+  //   }
 
-    final response = await _inAppPurchase.queryProductDetails({noAdsProductId});
-    if (!mounted) return;
-    setState(() {
-      _noAdsProduct = response.productDetails.isNotEmpty
-          ? response.productDetails.first
-          : null;
-      _purchaseError = response.error?.message;
-      _isLoadingProducts = false;
-    });
-  }
+  //   final response = await _inAppPurchase.queryProductDetails({noAdsProductId});
+  //   if (!mounted) return;
+  //   setState(() {
+  //     _noAdsProduct = response.productDetails.isNotEmpty
+  //         ? response.productDetails.first
+  //         : null;
+  //     _purchaseError = response.error?.message;
+  //     _isLoadingProducts = false;
+  //   });
+  // }
 
-  Future<void> _markNoAdsPurchased() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(noAdsPrefsKey, true);
-    if (!mounted) return;
-    setState(() {
-      _adsRemoved = true;
-      _purchasePending = false;
-    });
-    widget.onAdsStatusChanged(true);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Ads removed. Thank you!'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-  }
+  // Future<void> _markNoAdsPurchased() async {
+  //   final prefs = await SharedPreferences.getInstance();
+  //   await prefs.setBool(noAdsPrefsKey, true);
+  //   if (!mounted) return;
+  //   setState(() {
+  //     _adsRemoved = true;
+  //     _purchasePending = false;
+  //   });
+  //   widget.onAdsStatusChanged(true);
+  //   ScaffoldMessenger.of(context).showSnackBar(
+  //     const SnackBar(
+  //       content: Text('Ads removed. Thank you!'),
+  //       duration: Duration(seconds: 2),
+  //     ),
+  //   );
+  // }
 
-  void _onPurchaseUpdated(List<PurchaseDetails> purchases) {
-    for (final purchase in purchases) {
-      if (purchase.productID != noAdsProductId) continue;
+  // void _onPurchaseUpdated(List<PurchaseDetails> purchases) {
+  //   for (final purchase in purchases) {
+  //     if (purchase.productID != noAdsProductId) continue;
 
-      switch (purchase.status) {
-        case PurchaseStatus.purchased:
-        case PurchaseStatus.restored:
-          _markNoAdsPurchased();
-          break;
-        case PurchaseStatus.pending:
-          setState(() => _purchasePending = true);
-          break;
-        case PurchaseStatus.canceled:
-          setState(() {
-            _purchasePending = false;
-            _purchaseError = 'Purchase canceled';
-          });
-          break;
-        case PurchaseStatus.error:
-          setState(() {
-            _purchasePending = false;
-            _purchaseError = purchase.error?.message ?? 'Purchase failed';
-          });
-          break;
-        default:
-          break;
-      }
+  //     switch (purchase.status) {
+  //       case PurchaseStatus.purchased:
+  //       case PurchaseStatus.restored:
+  //         _markNoAdsPurchased();
+  //         break;
+  //       case PurchaseStatus.pending:
+  //         setState(() => _purchasePending = true);
+  //         break;
+  //       case PurchaseStatus.canceled:
+  //         setState(() {
+  //           _purchasePending = false;
+  //           _purchaseError = 'Purchase canceled';
+  //         });
+  //         break;
+  //       case PurchaseStatus.error:
+  //         setState(() {
+  //           _purchasePending = false;
+  //           _purchaseError = purchase.error?.message ?? 'Purchase failed';
+  //         });
+  //         break;
+  //       default:
+  //         break;
+  //     }
 
-      if (purchase.pendingCompletePurchase) {
-        _inAppPurchase.completePurchase(purchase);
-      }
-    }
-  }
+  //     if (purchase.pendingCompletePurchase) {
+  //       _inAppPurchase.completePurchase(purchase);
+  //     }
+  //   }
+  // }
 
-  Future<void> _buyNoAds() async {
-    if (_adsRemoved) return;
-    final product = _noAdsProduct;
-    if (product == null) {
-      setState(() => _purchaseError = 'No Ads product unavailable');
-      return;
-    }
-    setState(() {
-      _purchasePending = true;
-      _purchaseError = null;
-    });
-    final purchaseParam = PurchaseParam(productDetails: product);
-    await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
-  }
+  // Future<void> _buyNoAds() async {
+  //   if (_adsRemoved) return;
+  //   final product = _noAdsProduct;
+  //   if (product == null) {
+  //     setState(() => _purchaseError = 'No Ads product unavailable');
+  //     return;
+  //   }
+  //   setState(() {
+  //     _purchasePending = true;
+  //     _purchaseError = null;
+  //   });
+  //   final purchaseParam = PurchaseParam(productDetails: product);
+  //   await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+  // }
 
-  Future<void> _restorePurchases() async {
-    setState(() {
-      _purchasePending = true;
-      _purchaseError = null;
-    });
-    await _inAppPurchase.restorePurchases();
-  }
+  // Future<void> _restorePurchases() async {
+  //   setState(() {
+  //     _purchasePending = true;
+  //     _purchaseError = null;
+  //   });
+  //   await _inAppPurchase.restorePurchases();
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -243,120 +243,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     );
                   },
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
-            // Upgrades Section
-            Text(
-              'Upgrades',
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: theme.colorScheme.onSurface.withOpacity(0.7),
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              decoration: BoxDecoration(
-                color: theme.colorScheme.surface,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.shadowColor.withOpacity(0.1),
-                    blurRadius: 8,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 8,
-                    ),
-                    leading: Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.secondary.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.block,
-                        color: theme.colorScheme.secondary,
-                        size: 24,
-                      ),
-                    ),
-                    title: Text(
-                      'Remove Ads',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    subtitle: Text(
-                      _adsRemoved
-                          ? 'Purchased - ads are disabled'
-                          : !_isStoreAvailable && !_isLoadingProducts
-                              ? 'Store unavailable. Check your connection.'
-                              : 'One-time purchase ${_noAdsProduct?.price ?? noAdsFallbackPrice}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurface.withOpacity(0.6),
-                      ),
-                    ),
-                    trailing: _adsRemoved
-                        ? Icon(
-                            Icons.check_circle_rounded,
-                            color: theme.colorScheme.primary,
-                          )
-                        : _isLoadingProducts
-                            ? const SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : ElevatedButton(
-                                onPressed: (!_isStoreAvailable || _purchasePending)
-                                    ? null
-                                    : _buyNoAds,
-                                child: _purchasePending
-                                    ? const SizedBox(
-                                        width: 18,
-                                        height: 18,
-                                        child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                        ),
-                                      )
-                                    : Text(_noAdsProduct?.price ?? noAdsFallbackPrice),
-                              ),
-                  ),
-                  if (!_adsRemoved)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
-                      child: Row(
-                        children: [
-                          TextButton.icon(
-                            onPressed: (!_isStoreAvailable || _purchasePending || _isLoadingProducts)
-                                ? null
-                                : _restorePurchases,
-                            icon: const Icon(Icons.restore_rounded),
-                            label: const Text('Restore'),
-                          ),
-                          const Spacer(),
-                          if (_purchaseError != null)
-                            Flexible(
-                              child: Text(
-                                _purchaseError!,
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.error,
-                                ),
-                                textAlign: TextAlign.right,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                ],
               ),
             ),
             const SizedBox(height: 24),

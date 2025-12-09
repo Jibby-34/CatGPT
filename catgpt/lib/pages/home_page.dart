@@ -10,7 +10,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:camera/camera.dart';
-import 'package:in_app_purchase/in_app_purchase.dart';
+// import 'package:in_app_purchase/in_app_purchase.dart';
 import '../constants/purchase_constants.dart';
 
 import 'history_page.dart';
@@ -48,8 +48,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   SharedPreferences? _prefs;
   
   // In-app purchase
-  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
-  StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
+  // final InAppPurchase _inAppPurchase = InAppPurchase.instance;
+  // StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
   
   // Camera related variables
   CameraController? _cameraController;
@@ -61,17 +61,17 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _purchaseSubscription = _inAppPurchase.purchaseStream.listen(
-      _onPurchaseUpdated,
-      onError: (error) => debugPrint('Purchase stream error: $error'),
-    );
+    // _purchaseSubscription = _inAppPurchase.purchaseStream.listen(
+    //   _onPurchaseUpdated,
+    //   onError: (error) => debugPrint('Purchase stream error: $error'),
+    // );
     _initializeState();
   }
 
   Future<void> _initializeState() async {
     await _loadPrefsAndHistory();
     // Verify purchase status with store before trusting SharedPreferences
-    await _verifyPurchaseStatus();
+    // await _verifyPurchaseStatus();
     if (!_adsRemoved) {
       _loadBannerAd();
       _loadRewardedAd();
@@ -82,7 +82,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _purchaseSubscription?.cancel();
+    // _purchaseSubscription?.cancel();
     _cameraController?.dispose();
     _bannerAd?.dispose();
     _rewardedAd?.dispose();
@@ -129,76 +129,76 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<void> _verifyPurchaseStatus() async {
-    try {
-      final available = await _inAppPurchase.isAvailable();
-      if (!available) {
-        debugPrint('Store not available for purchase verification');
-        // If store unavailable, clear any stale purchase data
-        final hadStaleData = _prefs?.getBool(noAdsPrefsKey) == true;
-        if (hadStaleData) {
-          await _prefs?.setBool(noAdsPrefsKey, false);
-          debugPrint('Cleared stale purchase data (store unavailable)');
-        }
-        return;
-      }
+  // Future<void> _verifyPurchaseStatus() async {
+  //   try {
+  //     final available = await _inAppPurchase.isAvailable();
+  //     if (!available) {
+  //       debugPrint('Store not available for purchase verification');
+  //       // If store unavailable, clear any stale purchase data
+  //       final hadStaleData = _prefs?.getBool(noAdsPrefsKey) == true;
+  //       if (hadStaleData) {
+  //         await _prefs?.setBool(noAdsPrefsKey, false);
+  //         debugPrint('Cleared stale purchase data (store unavailable)');
+  //       }
+  //       return;
+  //     }
 
-      // Check if SharedPreferences claims a purchase exists
-      final prefsClaimsPurchase = _prefs?.getBool(noAdsPrefsKey) == true;
+  //     // Check if SharedPreferences claims a purchase exists
+  //     final prefsClaimsPurchase = _prefs?.getBool(noAdsPrefsKey) == true;
       
-      // Restore purchases to verify actual purchase status
-      // This will fire events through the purchase stream
-      await _inAppPurchase.restorePurchases();
+  //     // Restore purchases to verify actual purchase status
+  //     // This will fire events through the purchase stream
+  //     await _inAppPurchase.restorePurchases();
       
-      // Wait for restore to process
-      await Future.delayed(const Duration(milliseconds: 1000));
+  //     // Wait for restore to process
+  //     await Future.delayed(const Duration(milliseconds: 1000));
       
-      // If SharedPreferences claimed a purchase but store doesn't confirm, clear it
-      if (prefsClaimsPurchase && !_adsRemoved) {
-        debugPrint('SharedPreferences claimed purchase but store does not confirm - clearing');
-        await _prefs?.setBool(noAdsPrefsKey, false);
-      }
-    } catch (e) {
-      debugPrint('Error verifying purchase status: $e');
-      // On error, clear any stale purchase data
-      if (_prefs?.getBool(noAdsPrefsKey) == true) {
-        await _prefs?.setBool(noAdsPrefsKey, false);
-        debugPrint('Cleared stale purchase data (verification error)');
-      }
-    }
-  }
+  //     // If SharedPreferences claimed a purchase but store doesn't confirm, clear it
+  //     if (prefsClaimsPurchase && !_adsRemoved) {
+  //       debugPrint('SharedPreferences claimed purchase but store does not confirm - clearing');
+  //       await _prefs?.setBool(noAdsPrefsKey, false);
+  //     }
+  //   } catch (e) {
+  //     debugPrint('Error verifying purchase status: $e');
+  //     // On error, clear any stale purchase data
+  //     if (_prefs?.getBool(noAdsPrefsKey) == true) {
+  //       await _prefs?.setBool(noAdsPrefsKey, false);
+  //       debugPrint('Cleared stale purchase data (verification error)');
+  //     }
+  //   }
+  // }
 
-  void _onPurchaseUpdated(List<PurchaseDetails> purchases) {
-    bool foundNoAdsPurchase = false;
+  // void _onPurchaseUpdated(List<PurchaseDetails> purchases) {
+  //   bool foundNoAdsPurchase = false;
     
-    for (final purchase in purchases) {
-      if (purchase.productID != noAdsProductId) continue;
+  //   for (final purchase in purchases) {
+  //     if (purchase.productID != noAdsProductId) continue;
 
-      switch (purchase.status) {
-        case PurchaseStatus.purchased:
-        case PurchaseStatus.restored:
-          foundNoAdsPurchase = true;
-          debugPrint('No Ads purchase verified: ${purchase.status}');
-          if (purchase.pendingCompletePurchase) {
-            _inAppPurchase.completePurchase(purchase);
-          }
-          break;
-        default:
-          break;
-      }
-    }
+  //     switch (purchase.status) {
+  //       case PurchaseStatus.purchased:
+  //       case PurchaseStatus.restored:
+  //         foundNoAdsPurchase = true;
+  //         debugPrint('No Ads purchase verified: ${purchase.status}');
+  //         if (purchase.pendingCompletePurchase) {
+  //           _inAppPurchase.completePurchase(purchase);
+  //         }
+  //         break;
+  //       default:
+  //         break;
+  //     }
+  //   }
 
-    // Only set ads removed if store confirms the purchase
-    if (foundNoAdsPurchase) {
-      if (!_adsRemoved) {
-        debugPrint('Setting ads removed to true based on store confirmation');
-        _updateAdsRemoved(true);
-      }
-    }
-    // Note: We don't clear _adsRemoved here if no purchase found,
-    // because this could be called for other purchases or during normal purchase flow.
-    // The verification logic in _verifyPurchaseStatus handles clearing stale data.
-  }
+  //   // Only set ads removed if store confirms the purchase
+  //   if (foundNoAdsPurchase) {
+  //     if (!_adsRemoved) {
+  //       debugPrint('Setting ads removed to true based on store confirmation');
+  //       _updateAdsRemoved(true);
+  //     }
+  //   }
+  //   // Note: We don't clear _adsRemoved here if no purchase found,
+  //   // because this could be called for other purchases or during normal purchase flow.
+  //   // The verification logic in _verifyPurchaseStatus handles clearing stale data.
+  // }
 
   Future<void> _updateAdsRemoved(bool value) async {
     if (_adsRemoved == value) return;
@@ -509,8 +509,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             • Do not use any human names.  
             • Include any significant object that appears in the image (examples: shoes, food bowl, car). Do NOT mention basic background elements (ground, wall) unless they are clearly significant.  
             • If there is no significant object, translate only the cat's body language.  
-            • If the cat is a human with cat features, you may use that as part of the translation's joke. If the cat is a human female with cat features and the image is determined to be even a tiny bit suggestive (ex: skin showing, exaggerated proportions, etc.), you MUST include sexual suggestiveness AND explicit language relating to such suggestions.
-            • If the cat is irregular (e.g., meme cat with a human face), you may utilize this in the translation's joke.  
+            • If the cat is a human with cat features, the translation should be absurd, but if the cat is a human female with cat features and the image is suggestive (ex: skin showing, exaggerated proportions, etc.), you MUST include sexual contemt AND explicit language relating to such.
             • Use few emojis (max 2).  
             • Keep all output on one line. No additional text.  
             • After the translation, append one bracketed short reasoning token containing exactly two adjectives (for example: [sleepy, smug]). Example full output format:
@@ -518,7 +517,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             • All translations MUST BE IN FIRST PERSON.
             • ABSOLUTLEY DO NOT include anything but the translation and reasoning
             • Make humor a priority in your translation""
-            • If there is not a cat in the image, you must say EXACTLY "No cat detected!"""
+            • If there is not a cat in the image, you must say EXACTLY "No cat detected!
+            • The translated phrase should be SHORT (a short phrase max) and FUNNY"""
       });
 
       final response = await http.post(url, headers: headers, body: body);
