@@ -623,9 +623,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               // Add top padding to account for banner ad or provide fallback spacing on camera page
               Builder(
                 builder: (context) {
+                  final bool isLiveCamera = (_currentIndex == 1 && _pickedImageBytes == null);
                   final double topSpacer = (!_adsRemoved && _isBannerLoaded && _bannerAd != null)
                       ? _bannerAd!.size.height.toDouble()
-                      : (_currentIndex == 1 ? (kToolbarHeight + 8) : 0.0);
+                      : (isLiveCamera ? (kToolbarHeight + 8) : 0.0);
                   return topSpacer > 0 ? SizedBox(height: topSpacer) : const SizedBox.shrink();
                 },
               ),
@@ -787,7 +788,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             child: Align(
               alignment: Alignment.topRight,
               child: Padding(
-                padding: const EdgeInsets.all(12.0),
+                // Dynamic top padding: extra if banner, else dock close to top
+                padding: (!_adsRemoved && _isBannerLoaded && _bannerAd != null)
+                    ? const EdgeInsets.all(12.0)
+                    : EdgeInsets.only(top: MediaQuery.of(context).padding.top + 8, right: 12),
                 child: Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,

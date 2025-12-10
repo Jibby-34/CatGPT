@@ -12,6 +12,7 @@ class CameraPage extends StatefulWidget {
   final Future<Uint8List?> Function() pickImage;
   final Future<void> Function() evaluateImage;
   final Function(Uint8List) onImageCaptured;
+  final bool adsRemoved;
 
   const CameraPage({
     super.key,
@@ -20,6 +21,7 @@ class CameraPage extends StatefulWidget {
     required this.pickImage,
     required this.evaluateImage,
     required this.onImageCaptured,
+    required this.adsRemoved,
   });
 
   @override
@@ -202,7 +204,9 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
               child: Align(
                 alignment: Alignment.topRight,
                 child: Padding(
-                  padding: const EdgeInsets.all(12.0),
+                  padding: widget.adsRemoved
+                    ? EdgeInsets.only(top: MediaQuery.of(context).padding.top + 2, right: 8)
+                    : const EdgeInsets.all(12.0),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
