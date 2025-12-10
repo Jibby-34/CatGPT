@@ -231,7 +231,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     padTo(imageHistory);
 
     await _prefs!.setStringList('translationHistory', translationHistory);
-    await _prefs!.setStringList('imageHistory', imageHistory.map((b) => b == null ? '' : base64Encode(b)).toList());
+    // Safely encode images - if encoding fails for any image, save empty string to maintain list alignment
+    await _prefs!.setStringList('imageHistory', imageHistory.map((b) {
+      if (b == null) return '';
+      try {
+        return base64Encode(b);
+      } catch (e) {
+        debugPrint('Error encoding image for history: $e');
+        return ''; // Save empty string to maintain list alignment
+      }
+    }).toList());
     await _prefs!.setStringList('favorites', favorites.map((i) => i.toString()).toList());
   }
   void _loadBannerAd() {
@@ -374,10 +383,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
 
-  void _addHistoryEntry({required String text, Uint8List? imageBytes}) {
+  Future<void> _addHistoryEntry({required String text, Uint8List? imageBytes}) async {
     translationHistory.add(text);
     imageHistory.add(imageBytes);
-    _saveHistory();
+    await _saveHistory();
   }
 
   void _clearHistory() {
@@ -547,7 +556,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         setState(() => _outputText = text);
 
         if (!text.contains('No cat detected!')) {
-          _addHistoryEntry(text: text, imageBytes: _pickedImageBytes);
+          await _addHistoryEntry(text: text, imageBytes: _pickedImageBytes);
 
           if (!_adsRemoved) {
             await _showRewardedAdIfAvailable();
@@ -616,7 +625,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 builder: (context) {
                   final double topSpacer = (!_adsRemoved && _isBannerLoaded && _bannerAd != null)
                       ? _bannerAd!.size.height.toDouble()
-                      : (_currentIndex == 1 ? 16.0 : 0.0);
+                      : (_currentIndex == 1 ? (kToolbarHeight + 8) : 0.0);
                   return topSpacer > 0 ? SizedBox(height: topSpacer) : const SizedBox.shrink();
                 },
               ),
