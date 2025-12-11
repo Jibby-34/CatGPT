@@ -583,19 +583,52 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
         centerTitle: true,
-        title: Row(
+        title: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: isDark 
+                ? Colors.white.withOpacity(0.1) 
+                : Colors.black.withOpacity(0.05),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isDark 
+                  ? Colors.white.withOpacity(0.1) 
+                  : Colors.black.withOpacity(0.08),
+              width: 1,
+            ),
+          ),
+          child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            CatGptLogo(size: 35, isDark: widget.isDarkMode),
-            const SizedBox(width: 8),
-            const Text('CatGPT'),
-          ],
+              CatGptLogo(size: 28, isDark: widget.isDarkMode),
+              const SizedBox(width: 10),
+              Text(
+                'CatGPT',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: -0.3,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ],
+          ),
         ),
         actions: [
-          IconButton(
+          Container(
+            margin: const EdgeInsets.only(right: 8),
+            decoration: BoxDecoration(
+              color: isDark 
+                  ? Colors.white.withOpacity(0.1) 
+                  : Colors.black.withOpacity(0.05),
+              shape: BoxShape.circle,
+            ),
+            child: IconButton(
             onPressed: () {
               Navigator.push(
                 context,
@@ -610,8 +643,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ),
               );
             },
-            icon: const Icon(Icons.settings),
+              icon: Icon(
+                Icons.settings_rounded,
+                color: theme.colorScheme.onSurface,
+              ),
             tooltip: 'Settings',
+            ),
           ),
         ],
       ),
@@ -657,27 +694,44 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           if (!kIsWeb && _currentIndex == 1)
             Positioned(
               top: (!_adsRemoved && _isBannerLoaded && _bannerAd != null)
-                  ? _bannerAd!.size.height.toDouble() + 12
-                  : 32,
-              right: 12,
+                  ? _bannerAd!.size.height.toDouble() + 16
+                  : 40,
+              right: 20,
               child: Container(
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  color: Colors.black.withOpacity(0.35),
+                  color: Colors.black.withOpacity(0.4),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.6),
-                    width: 2,
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1.5,
                   ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.3),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
-                child: IconButton(
-                  onPressed: () async {
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () async {
                     final bytes = await pickImageFromGallery();
                     if (bytes != null) {
                       await evaluateImage();
                     }
                   },
-                  icon: const Icon(Icons.image_rounded, color: Colors.white, size: 24),
-                  tooltip: 'Select Image',
+                    borderRadius: BorderRadius.circular(28),
+                    child: Container(
+                      padding: const EdgeInsets.all(12),
+                      child: const Icon(
+                        Icons.photo_library_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -686,76 +740,88 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         ],
       ),
       floatingActionButton: _currentIndex == 1
-          ? SizedBox(
-              width: 72,
-              height: 72,
-              child: FloatingActionButton(
-                onPressed: _onTakePhoto,
-                tooltip: 'Take Photo',
-                elevation: 6,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                child: const Icon(Icons.camera_alt_rounded, size: 40),
+          ? Container(
+              width: 80,
+              height: 80,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.tertiary,
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: theme.colorScheme.primary.withOpacity(0.4),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: _onTakePhoto,
+                  borderRadius: BorderRadius.circular(40),
+                  child: const Icon(
+                    Icons.camera_alt_rounded,
+                    size: 36,
+                    color: Colors.white,
+                  ),
+                ),
               ),
             )
                   : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      bottomNavigationBar: BottomAppBar(
-        color: theme.colorScheme.surface,
-        elevation: 0,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 6),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          color: isDark 
+              ? const Color(0xFF1E293B).withOpacity(0.95)
+              : Colors.white.withOpacity(0.95),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
+        ),
+        child: SafeArea(
+          child: Container(
+            height: 70,
+            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
           child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              IconButton(
-                icon: Icon(
-                  Icons.home_filled,
-                  size: 28,
-                  color: _currentIndex == 0
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface.withOpacity(0.6),
+                _buildNavItem(
+                  context,
+                  icon: Icons.home_rounded,
+                  activeIcon: Icons.home_filled,
+                  label: 'Home',
+                  index: 0,
+                  theme: theme,
                 ),
-                onPressed: () => setState(() {
-                  // Reset camera state when leaving camera tab
-                  if (_currentIndex == 1) _resetCameraState();
-                  _currentIndex = 0;
-                  _outputText = null;
-                }),
-                tooltip: 'Home',
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.camera_alt_rounded,
-                  size: 28,
-                  color: _currentIndex == 1
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface.withOpacity(0.6),
+                _buildNavItem(
+                  context,
+                  icon: Icons.camera_alt_outlined,
+                  activeIcon: Icons.camera_alt_rounded,
+                  label: 'Camera',
+                  index: 1,
+                  theme: theme,
                 ),
-                onPressed: () => setState(() {
-                  _currentIndex = 1;
-                  // Clear cross-tab artifacts
-                  _outputText = null;
-                }),
-                tooltip: 'Camera',
-              ),
-              IconButton(
-                icon: Icon(
-                  Icons.history_rounded,
-                  size: 28,
-                  color: _currentIndex == 2
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface.withOpacity(0.6),
+                _buildNavItem(
+                  context,
+                  icon: Icons.history_outlined,
+                  activeIcon: Icons.history_rounded,
+                  label: 'History',
+                  index: 2,
+                  theme: theme,
                 ),
-                onPressed: () => setState(() {
-                  // Reset camera state when leaving camera tab
-                  if (_currentIndex == 1) _resetCameraState();
-                  _currentIndex = 2;
-                  // Avoid showing stale text in other tabs after returning
-                  _outputText = null;
-                }),
-                tooltip: 'History',
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -832,23 +898,78 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return Container(
         color: bg,
         child: Center(
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF1E293B).withOpacity(0.8)
+                  : Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withOpacity(0.1)
+                    : Colors.black.withOpacity(0.05),
+                width: 1,
+              ),
+            ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.camera_alt_outlined, size: 64, color: Colors.white54),
-              const SizedBox(height: 16),
-              const Text('Camera preview not available on web', style: TextStyle(color: Colors.white70)),
-              const SizedBox(height: 12),
-              ElevatedButton.icon(
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.camera_alt_outlined,
+                    size: 48,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Camera preview not available on web',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        theme.colorScheme.primary,
+                        theme.colorScheme.tertiary,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ElevatedButton.icon(
                 onPressed: () async {
                   final bytes = await pickImageFromGallery();
                   if (bytes == null) return;
                   await evaluateImage();
                 },
-                icon: const Icon(Icons.upload_file_outlined),
-                label: const Text('Upload Image'),
-              ),
-            ],
+                    icon: const Icon(Icons.upload_file_rounded, color: Colors.white),
+                    label: const Text(
+                      'Upload Image',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -858,8 +979,35 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (!_isCameraPermissionGranted) {
       return Container(
         color: bg,
-        child: const Center(
-          child: Text('Camera permission required', style: TextStyle(color: Colors.white70)),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF1E293B).withOpacity(0.8)
+                  : Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.camera_alt_outlined,
+                  size: 48,
+                  color: theme.colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Camera permission required',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }
@@ -868,13 +1016,32 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       return Container(
         color: bg,
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: theme.colorScheme.primary),
-              const SizedBox(height: 16),
-              const Text('Initializing camera...', style: TextStyle(color: Colors.white70)),
-            ],
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF1E293B).withOpacity(0.8)
+                  : Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  color: theme.colorScheme.primary,
+                  strokeWidth: 3,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Initializing camera...',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -916,82 +1083,126 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         : null;
 
     return Positioned(
-      left: 14,
-      right: 14,
-      bottom: 110, // sits just above the capture button
+      left: 16,
+      right: 16,
+      bottom: 120, // sits just above the capture button
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: Container(
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withOpacity(0.95),
-              borderRadius: BorderRadius.circular(14),
+              color: isDark
+                  ? const Color(0xFF1E293B).withOpacity(0.98)
+                  : Colors.white.withOpacity(0.98),
+              borderRadius: BorderRadius.circular(24),
               boxShadow: [
                 BoxShadow(
-                  color: theme.shadowColor.withOpacity(0.2),
-                  blurRadius: 12,
-                  offset: const Offset(0, 8),
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 24,
+                  offset: const Offset(0, 12),
                 ),
               ],
               border: Border.all(
-                color: theme.colorScheme.primary.withOpacity(isDark ? 0.22 : 0.14),
-                width: 1,
+                color: theme.colorScheme.primary.withOpacity(0.2),
+                width: 1.5,
               ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.pets, size: 20, color: theme.colorScheme.onSurface),
-                const SizedBox(width: 10),
-                Flexible(
-                  fit: FlexFit.loose,
+            padding: const EdgeInsets.all(20),
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.pets_rounded,
+                        size: 20,
+                        color: theme.colorScheme.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
                         mainText,
                         style: TextStyle(
-                          fontSize: 15,
-                          height: 1.3,
+                          fontSize: 16,
+                          height: 1.4,
                           color: theme.colorScheme.onSurface,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      if (reasoningText != null) ...[
-                        const SizedBox(height: 6),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: () {
-                              // Show reasoning in a snackbar or dialog
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Reasoning: $reasoningText'),
-                                  duration: const Duration(seconds: 4),
-                                ),
-                              );
-                            },
-                            icon: const Icon(Icons.visibility_outlined, size: 18),
-                            label: const Text('Show reasoning'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: theme.colorScheme.primary,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              minimumSize: const Size(0, 0),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.error.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                  child: IconButton(
+                    onPressed: () {
+                      _resetCameraState();
+                    },
+                    icon: Icon(
+                      Icons.close_rounded,
+                      size: 18,
+                      color: theme.colorScheme.error,
+                    ),
+                    padding: const EdgeInsets.all(6),
+                    constraints: const BoxConstraints(),
+                  ),
+                ),
+              ],
+            ),
+                if (reasoningText != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: theme.colorScheme.primary.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.psychology_rounded,
+                          size: 16,
+                          color: theme.colorScheme.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            reasoningText,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: theme.colorScheme.onSurface.withOpacity(0.7),
                             ),
                           ),
                         ),
-                      ],
                     ],
                   ),
                 ),
-                const SizedBox(width: 6),
-                // Share button
-                if (_pickedImageBytes != null && _outputText != null)
-                  InkWell(
+                ],
+                if (_pickedImageBytes != null && _outputText != null) ...[
+                  const SizedBox(height: 12),
+                  Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          theme.colorScheme.primary,
+                          theme.colorScheme.tertiary,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Material(
+                      color: Colors.transparent,
+                      child: InkWell(
                     onTap: () async {
                       try {
                         await ShareService.shareInstagramStyle(
@@ -1007,29 +1218,29 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         }
                       }
                     },
+                        borderRadius: BorderRadius.circular(12),
                     child: Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: Icon(
-                        Icons.share_rounded,
-                        size: 18,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                  ),
-                const SizedBox(width: 4),
-                InkWell(
-                  onTap: () {
-                    _resetCameraState();
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: Icon(
-                      Icons.close,
-                      size: 18,
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.share_rounded, color: Colors.white, size: 18),
+                              const SizedBox(width: 8),
+                              Text(
+                                'Share',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                     ),
                   ),
                 ),
+                ],
               ],
             ),
           ),
@@ -1039,21 +1250,110 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildLoadingOverlay() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     return Container(
-      color: Colors.black.withOpacity(0.28),
-      child: const Center(
-        child: SizedBox(
-          width: 120,
-          height: 120,
-          child: Card(
-            elevation: 10,
-            shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.all(Radius.circular(12))),
-            child: Padding(
-              padding: EdgeInsets.all(18.0),
+      color: Colors.black.withOpacity(0.4),
               child: Center(
-                child: CircularProgressIndicator(strokeWidth: 3),
+        child: Container(
+          width: 140,
+          height: 140,
+          decoration: BoxDecoration(
+            color: isDark 
+                ? const Color(0xFF1E293B)
+                : Colors.white,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 30,
+                offset: const Offset(0, 10),
               ),
+            ],
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(
+                strokeWidth: 3,
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  theme.colorScheme.primary,
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Analyzing...',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: theme.colorScheme.onSurface.withOpacity(0.7),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem(
+    BuildContext context, {
+    required IconData icon,
+    required IconData activeIcon,
+    required String label,
+    required int index,
+    required ThemeData theme,
+  }) {
+    final isActive = _currentIndex == index;
+    final isDark = theme.brightness == Brightness.dark;
+    
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            setState(() {
+              if (_currentIndex == 1) _resetCameraState();
+              _currentIndex = index;
+              _outputText = null;
+            });
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? theme.colorScheme.primary.withOpacity(0.15)
+                        : Colors.transparent,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    isActive ? activeIcon : icon,
+                    size: 24,
+                    color: isActive
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                AnimatedDefaultTextStyle(
+                  duration: const Duration(milliseconds: 200),
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
+                    color: isActive
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurface.withOpacity(0.5),
+                  ),
+                  child: Text(label),
+                ),
+              ],
             ),
           ),
         ),
@@ -1082,14 +1382,13 @@ class _HomePageContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Replaced 3 action cards with 2 primary buttons (Upload, Camera)
-
+    final isDark = theme.brightness == Brightness.dark;
 
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 700;
-        final horizontalPadding = isWide ? 28.0 : 18.0;
-        final topPadding = isWide ? 24.0 : 16.0;
+        final horizontalPadding = isWide ? 28.0 : 20.0;
+        final topPadding = isWide ? 32.0 : 24.0;
 
         // Recent items: cap to 2 to avoid scroll
         final maxRecent = 2;
@@ -1103,63 +1402,108 @@ class _HomePageContent extends StatelessWidget {
 
         return SingleChildScrollView(
           child: Padding(
-            padding: EdgeInsets.fromLTRB(horizontalPadding, topPadding, horizontalPadding, 12),
+            padding: EdgeInsets.fromLTRB(horizontalPadding, topPadding, horizontalPadding, 24),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // Centered logo banner
-                Center(
+                // Centered logo banner with gradient background
+                Container(
+                  padding: const EdgeInsets.symmetric(vertical: 32),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: isDark
+                          ? [
+                              theme.colorScheme.primary.withOpacity(0.15),
+                              theme.colorScheme.tertiary.withOpacity(0.1),
+                            ]
+                          : [
+                              theme.colorScheme.primary.withOpacity(0.08),
+                              theme.colorScheme.tertiary.withOpacity(0.05),
+                            ],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(28),
+                  ),
+                  child: Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      CatGptLogo(size: isWide ? 72 : 60),
-                      const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? Colors.white.withOpacity(0.1)
+                                : Colors.white,
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.colorScheme.primary.withOpacity(0.2),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: CatGptLogo(size: isWide ? 64 : 56, isDark: isDark),
+                        ),
+                        const SizedBox(height: 16),
                       Text(
                         'CatGPT',
                         textAlign: TextAlign.center,
-                        style: (isWide ? theme.textTheme.headlineLarge : theme.textTheme.headlineMedium)
-                            ?.copyWith(fontWeight: FontWeight.w800, letterSpacing: 0.2),
-                      ),
-                      const SizedBox(height: 6),
+                          style: (isWide ? theme.textTheme.displaySmall : theme.textTheme.headlineLarge)
+                              ?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.5,
+                            color: theme.colorScheme.onSurface,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
                       Text(
                         'Translate your cat\'s vibes from a photo!',
                         textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyMedium,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          ),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                // Two primary buttons replacing the previous three boxes
+                ),
+                const SizedBox(height: 32),
+                // Modern action buttons
                 if (isWide)
                   Row(
                     children: [
                       Expanded(
-                        child: SizedBox(
-                          height: 56,
-                          child: ElevatedButton.icon(
+                        child: _buildActionButton(
+                          context,
                             onPressed: onUploadAndTranslate,
-                            icon: const Icon(Icons.photo_library_outlined),
-                            label: const Text('Upload Image'),
-                            style: ElevatedButton.styleFrom(
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            ),
+                          icon: Icons.photo_library_rounded,
+                          label: 'Upload Image',
+                          gradient: LinearGradient(
+                            colors: [
+                              theme.colorScheme.primary,
+                              theme.colorScheme.tertiary,
+                            ],
                           ),
+                          theme: theme,
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 16),
                       Expanded(
-                        child: SizedBox(
-                          height: 56,
-                          child: ElevatedButton.icon(
+                        child: _buildActionButton(
+                          context,
                             onPressed: onOpenCamera,
-                            icon: const Icon(Icons.camera_alt_rounded),
-                            label: const Text('Open Camera'),
-                            style: ElevatedButton.styleFrom(
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                            ),
+                          icon: Icons.camera_alt_rounded,
+                          label: 'Open Camera',
+                          gradient: LinearGradient(
+                            colors: [
+                              theme.colorScheme.secondary,
+                              theme.colorScheme.primary,
+                            ],
                           ),
+                          theme: theme,
                         ),
                       ),
                     ],
@@ -1168,100 +1512,157 @@ class _HomePageContent extends StatelessWidget {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      SizedBox(
-                        height: 52,
-                        child: ElevatedButton.icon(
+                      _buildActionButton(
+                        context,
                           onPressed: onUploadAndTranslate,
-                          icon: const Icon(Icons.photo_library_outlined),
-                          label: const Text('Upload Image'),
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
+                        icon: Icons.photo_library_rounded,
+                        label: 'Upload Image',
+                        gradient: LinearGradient(
+                          colors: [
+                            theme.colorScheme.primary,
+                            theme.colorScheme.tertiary,
+                          ],
                         ),
+                        theme: theme,
                       ),
-                      const SizedBox(height: 12),
-                      SizedBox(
-                        height: 52,
-                        child: ElevatedButton.icon(
+                      const SizedBox(height: 16),
+                      _buildActionButton(
+                        context,
                           onPressed: onOpenCamera,
-                          icon: const Icon(Icons.camera_alt_rounded),
-                          label: const Text('Open Camera'),
-                          style: ElevatedButton.styleFrom(
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                          ),
+                        icon: Icons.camera_alt_rounded,
+                        label: 'Open Camera',
+                        gradient: LinearGradient(
+                          colors: [
+                            theme.colorScheme.secondary,
+                            theme.colorScheme.primary,
+                          ],
                         ),
+                        theme: theme,
                       ),
                     ],
                   ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 40),
                 if (hasRecent) ...[
-                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('Recent', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                      Text(
+                        'Recent',
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: theme.colorScheme.onSurface,
+                        ),
+                      ),
                       TextButton.icon(
                         onPressed: onOpenHistory,
-                        icon: const Icon(Icons.history_rounded, size: 18),
-                        label: const Text('View all'),
+                        icon: Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 16,
+                          color: theme.colorScheme.primary,
+                        ),
+                        label: Text(
+                          'View all',
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 16),
                   ...recentItems.map((idx) {
                     final text = recentTranslations[idx];
                     final img = idx < recentImages.length ? recentImages[idx] : null;
                     return Container(
-                      margin: const EdgeInsets.only(bottom: 10),
+                      margin: const EdgeInsets.only(bottom: 12),
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.surface,
-                        borderRadius: BorderRadius.circular(14),
+                        color: isDark
+                            ? const Color(0xFF1E293B)
+                            : Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isDark
+                              ? Colors.white.withOpacity(0.1)
+                              : Colors.black.withOpacity(0.05),
+                          width: 1,
+                        ),
                         boxShadow: [
                           BoxShadow(
-                            color: theme.shadowColor.withOpacity(0.1),
-                            blurRadius: 8,
-                            offset: const Offset(0, 6),
-                          )
+                            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
+                            blurRadius: 12,
+                            offset: const Offset(0, 4),
+                          ),
                         ],
                       ),
-                      padding: const EdgeInsets.all(12),
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          onTap: onOpenHistory,
+                          borderRadius: BorderRadius.circular(20),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
-                            width: 44,
-                            height: 44,
+                                  width: 56,
+                                  height: 56,
                             decoration: BoxDecoration(
-                              color: Colors.blueGrey.withOpacity(theme.brightness == Brightness.dark ? 0.2 : 0.12),
-                              borderRadius: BorderRadius.circular(10),
+                                    color: theme.colorScheme.primary.withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(16),
                               image: img != null
-                                  ? DecorationImage(image: MemoryImage(img), fit: BoxFit.cover)
+                                        ? DecorationImage(
+                                            image: MemoryImage(img),
+                                            fit: BoxFit.cover,
+                                          )
                                   : null,
                             ),
                             child: img != null 
                                 ? null 
                                 : Icon(
-                                    Icons.pets, 
-                                    size: 24,
-                                    color: theme.brightness == Brightness.dark ? Colors.white70 : Colors.black54,
-                                  ),
-                          ),
-                          const SizedBox(width: 10),
+                                          Icons.pets_rounded,
+                                          size: 28,
+                                          color: theme.colorScheme.primary,
+                                        ),
+                                ),
+                                const SizedBox(width: 16),
                           Expanded(
-                            child: Text(
-                              text,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        text.length > 80 ? '${text.substring(0, 80)}...' : text,
                               maxLines: 2,
                               overflow: TextOverflow.ellipsis,
-                              style: TextStyle(
-                                height: 1.25,
+                                        style: theme.textTheme.bodyLarge?.copyWith(
+                                          height: 1.4,
+                                          fontWeight: FontWeight.w600,
                                 color: theme.colorScheme.onSurface,
                               ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Tap to view full translation',
+                                        style: theme.textTheme.bodySmall?.copyWith(
+                                          color: theme.colorScheme.onSurface.withOpacity(0.5),
+                                        ),
+                                      ),
+                                    ],
                             ),
                           ),
                           const SizedBox(width: 8),
                           if (img != null)
-                            InkWell(
-                              onTap: () async {
+                                  Container(
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.primary.withOpacity(0.1),
+                                      shape: BoxShape.circle,
+                                    ),
+                                    child: IconButton(
+                                      onPressed: () async {
                                 try {
                                   await ShareService.shareInstagramStyle(
                                     imageBytes: img,
@@ -1276,62 +1677,129 @@ class _HomePageContent extends StatelessWidget {
                                   }
                                 }
                               },
-                              child: Padding(
-                                padding: const EdgeInsets.all(4.0),
-                                child: Icon(
+                                      icon: Icon(
                                   Icons.share_rounded,
-                                  size: 20,
+                                        size: 18,
                                   color: theme.colorScheme.primary,
                                 ),
+                                      padding: const EdgeInsets.all(8),
+                                      constraints: const BoxConstraints(),
                               ),
                             ),
                         ],
+                            ),
+                          ),
+                        ),
                       ),
                     );
                   }),
-                  const SizedBox(height: 16),
                 ],
                 if (!hasRecent) ...[
-                  const SizedBox(height: 8),
                   Container(
-                    width: double.infinity,
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
-                      borderRadius: BorderRadius.circular(16),
-                      boxShadow: [
-                        BoxShadow(
-                          color: theme.shadowColor.withOpacity(0.1),
-                          blurRadius: 8,
-                          offset: const Offset(0, 6),
-                        )
-                      ],
+                      color: isDark
+                          ? const Color(0xFF1E293B)
+                          : Colors.white,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(
+                        color: isDark
+                            ? Colors.white.withOpacity(0.1)
+                            : Colors.black.withOpacity(0.05),
+                        width: 1,
+                      ),
                     ),
-                    padding: const EdgeInsets.all(16),
                     child: Row(
                       children: [
-                        Icon(
-                          Icons.hourglass_empty_outlined,
-                          color: theme.colorScheme.onSurface.withOpacity(0.6),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Icon(
+                            Icons.auto_awesome_rounded,
+                            color: theme.colorScheme.primary,
+                            size: 24,
+                          ),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 16),
                         Expanded(
                           child: Text(
-                            'No recent translations yet. Try a photo or meow!',
-                            style: TextStyle(
+                            'No recent translations yet.\nTry uploading a photo or opening the camera!',
+                            style: theme.textTheme.bodyMedium?.copyWith(
                               color: theme.colorScheme.onSurface.withOpacity(0.7),
+                              height: 1.5,
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
                 ],
               ],
             ),
           ),
         );
       },
+    );
+  }
+
+  Widget _buildActionButton(
+    BuildContext context, {
+    required VoidCallback onPressed,
+    required IconData icon,
+    required String label,
+    required Gradient gradient,
+    required ThemeData theme,
+  }) {
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      height: 64,
+      decoration: BoxDecoration(
+        gradient: gradient,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(0.3),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(20),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 

@@ -41,7 +41,7 @@ class _CatTranslatorAppState extends State<CatTranslatorApp> {
 
   @override
   Widget build(BuildContext context) {
-    final seed = Colors.indigo;
+    final seed = const Color(0xFF6366F1); // Modern indigo
 
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -52,14 +52,57 @@ class _CatTranslatorAppState extends State<CatTranslatorApp> {
         colorScheme: ColorScheme.fromSeed(
           seedColor: seed,
           brightness: Brightness.light,
-          secondary: Colors.tealAccent.shade700,
+          primary: const Color(0xFF6366F1),
+          secondary: const Color(0xFF14B8A6),
+          tertiary: const Color(0xFF8B5CF6),
+          surface: Colors.white,
+          surfaceContainerHighest: const Color(0xFFF8FAFC),
         ),
-        scaffoldBackgroundColor: const Color(0xFFF6F8FF),
-        appBarTheme: const AppBarTheme(
+        scaffoldBackgroundColor: const Color(0xFFFAFBFF),
+        appBarTheme: AppBarTheme(
           centerTitle: true,
           elevation: 0,
+          scrolledUnderElevation: 0,
           backgroundColor: Colors.transparent,
-          foregroundColor: Colors.black87,
+          foregroundColor: const Color(0xFF1E293B),
+          titleTextStyle: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+            color: Color(0xFF1E293B),
+          ),
+        ),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          color: Colors.white,
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1),
+          displayMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.8),
+          displaySmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.5),
+          headlineLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.5),
+          headlineMedium: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: -0.3),
+          titleLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: 0),
+          titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: 0),
+          bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: 0.1),
+          bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, letterSpacing: 0.1),
         ),
       ),
       darkTheme: ThemeData(
@@ -67,14 +110,57 @@ class _CatTranslatorAppState extends State<CatTranslatorApp> {
         colorScheme: ColorScheme.fromSeed(
           seedColor: seed,
           brightness: Brightness.dark,
-          secondary: Colors.tealAccent.shade700,
+          primary: const Color(0xFF818CF8),
+          secondary: const Color(0xFF2DD4BF),
+          tertiary: const Color(0xFFA78BFA),
+          surface: const Color(0xFF1E293B),
+          surfaceContainerHighest: const Color(0xFF334155),
         ),
-        scaffoldBackgroundColor: const Color(0xFF121212),
-        appBarTheme: const AppBarTheme(
+        scaffoldBackgroundColor: const Color(0xFF0F172A),
+        appBarTheme: AppBarTheme(
           centerTitle: true,
           elevation: 0,
+          scrolledUnderElevation: 0,
           backgroundColor: Colors.transparent,
           foregroundColor: Colors.white,
+          titleTextStyle: const TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.5,
+            color: Colors.white,
+          ),
+        ),
+        cardTheme: CardThemeData(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          color: const Color(0xFF1E293B),
+        ),
+        elevatedButtonTheme: ElevatedButtonThemeData(
+          style: ElevatedButton.styleFrom(
+            elevation: 0,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+            ),
+            textStyle: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 0.2,
+            ),
+          ),
+        ),
+        textTheme: const TextTheme(
+          displayLarge: TextStyle(fontSize: 32, fontWeight: FontWeight.w800, letterSpacing: -1),
+          displayMedium: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, letterSpacing: -0.8),
+          displaySmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.5),
+          headlineLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.5),
+          headlineMedium: TextStyle(fontSize: 20, fontWeight: FontWeight.w600, letterSpacing: -0.3),
+          titleLarge: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, letterSpacing: 0),
+          titleMedium: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, letterSpacing: 0),
+          bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w400, letterSpacing: 0.1),
+          bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, letterSpacing: 0.1),
         ),
       ),
       home: HomePage(
