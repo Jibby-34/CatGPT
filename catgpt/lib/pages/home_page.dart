@@ -248,7 +248,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     // Use test ad unit ID during development, replace with your real ad unit ID for production
     String adUnitId;
     if (kDebugMode) {
-      adUnitId = 'ca-app-pub-3940256099942544/6300978111'; // Google test banner ad unit ID
+      adUnitId = 'hhh'; // Google test banner ad unit ID
     } else {
       // Check platform and use appropriate ad unit ID
       if (Platform.isAndroid) {
@@ -653,6 +653,34 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ),
               ),
             ),
+          // Select image button - positioned at top right (only on camera page)
+          if (!kIsWeb && _currentIndex == 1)
+            Positioned(
+              top: (!_adsRemoved && _isBannerLoaded && _bannerAd != null)
+                  ? _bannerAd!.size.height.toDouble() + 12
+                  : 32,
+              right: 12,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.black.withOpacity(0.35),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.6),
+                    width: 2,
+                  ),
+                ),
+                child: IconButton(
+                  onPressed: () async {
+                    final bytes = await pickImageFromGallery();
+                    if (bytes != null) {
+                      await evaluateImage();
+                    }
+                  },
+                  icon: const Icon(Icons.image_rounded, color: Colors.white, size: 24),
+                  tooltip: 'Select Image',
+                ),
+              ),
+            ),
           // Loading overlay on top
           if (_isLoading) _buildLoadingOverlay(),
         ],
@@ -781,40 +809,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         
         // Result overlay when there's output text
         if (_outputText != null) _buildResultOverlay(theme),
-        
-        // Top overlay: image button
-        if (!kIsWeb)
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                // Dynamic top padding: extra if banner, else dock close to top
-                padding: (!_adsRemoved && _isBannerLoaded && _bannerAd != null)
-                    ? const EdgeInsets.all(12.0)
-                    : EdgeInsets.only(top: MediaQuery.of(context).padding.top + 8, right: 12),
-                child: Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: Colors.black.withOpacity(0.35),
-                    border: Border.all(
-                      color: Colors.white.withOpacity(0.6),
-                      width: 2,
-                    ),
-                  ),
-                  child: IconButton(
-                    onPressed: () async {
-                      final bytes = await pickImageFromGallery();
-                      if (bytes != null) {
-                        await evaluateImage();
-                      }
-                    },
-                    icon: const Icon(Icons.image_rounded, color: Colors.white, size: 24),
-                    tooltip: 'Select Image',
-                  ),
-                ),
-              ),
-            ),
-          ),
       ],
     );
   }

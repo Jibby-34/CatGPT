@@ -7,7 +7,7 @@ class CatGptLogo extends StatelessWidget {
 
   const CatGptLogo({super.key, this.size = 24, this.color, this.isDark});
 
-  @override
+  @override 
   Widget build(BuildContext context) {
     final isDarkMode = isDark ?? Theme.of(context).brightness == Brightness.dark;
     // If a specific color is provided, use it. Otherwise, when in dark mode
