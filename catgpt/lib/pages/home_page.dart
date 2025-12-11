@@ -36,8 +36,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   int _currentIndex = 1;
   String? _outputText;
   bool _isLoading = false;
-  BannerAd? _bannerAd;
-  bool _isBannerLoaded = false;
   RewardedAd? _rewardedAd;
   bool _adsRemoved = false;
 
@@ -74,7 +72,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     // Verify purchase status with store before trusting SharedPreferences
     // await _verifyPurchaseStatus();
     if (!_adsRemoved) {
-      _loadBannerAd();
       _loadRewardedAd();
     }
     _initializeCamera();
@@ -85,7 +82,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     WidgetsBinding.instance.removeObserver(this);
     // _purchaseSubscription?.cancel();
     _cameraController?.dispose();
-    _bannerAd?.dispose();
     _rewardedAd?.dispose();
     super.dispose();
   }
@@ -208,9 +204,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     setState(() {
       _adsRemoved = value;
       if (value) {
-        _bannerAd?.dispose();
-        _bannerAd = null;
-        _isBannerLoaded = false;
         _rewardedAd?.dispose();
         _rewardedAd = null;
       }
@@ -218,7 +211,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     await _prefs?.setBool(noAdsPrefsKey, value);
 
     if (!value) {
-      _loadBannerAd();
       _loadRewardedAd();
     }
   }
@@ -243,59 +235,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }).toList());
     await _prefs!.setStringList('favorites', favorites.map((i) => i.toString()).toList());
   }
-  void _loadBannerAd() {
-    if (_adsRemoved) return;
-    // Use test ad unit ID during development, replace with your real ad unit ID for production
-    String adUnitId;
-    if (kDebugMode) {
-      adUnitId = 'hhh'; // Google test banner ad unit ID
-    } else {
-      // Check platform and use appropriate ad unit ID
-      if (Platform.isAndroid) {
-        adUnitId = const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-8779910258241973/8973110065');
-      } else if (Platform.isIOS) {
-        adUnitId = const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-8779910258241973/9965802154');
-      } else {
-        // Fallback for other platforms
-        adUnitId = const String.fromEnvironment('ADMOB_BANNER_ID', defaultValue: 'ca-app-pub-8779910258241973/8973110065');
-      }
-    }
-    
-    // kDebugMode is automatically true when running 'flutter run' (debug builds)
-    // kDebugMode is automatically false when running 'flutter run --release' (release builds)
-    debugPrint('Loading banner ad in ${kDebugMode ? "DEBUG" : "RELEASE"} mode on ${Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "Unknown"} with ID: $adUnitId');
-    
-    final ad = BannerAd(
-      size: AdSize.banner,
-      adUnitId: adUnitId,
-      listener: BannerAdListener(
-        onAdLoaded: (ad) {
-          debugPrint('Banner ad loaded successfully');
-          if (mounted) {
-            setState(() {
-              _isBannerLoaded = true;
-            });
-          }
-        },
-        onAdFailedToLoad: (ad, error) {
-          debugPrint('Banner ad failed to load: ${error.code} - ${error.message}');
-          debugPrint('Domain: ${error.domain}, ResponseInfo: ${error.responseInfo}');
-          ad.dispose();
-          if (mounted) {
-            setState(() {
-              _isBannerLoaded = false;
-            });
-          }
-        },
-        onAdOpened: (ad) => debugPrint('Banner ad opened'),
-        onAdClosed: (ad) => debugPrint('Banner ad closed'),
-      ),
-      request: const AdRequest(),
-    );
-    ad.load();
-    _bannerAd = ad;
-  }
-
   void _loadRewardedAd() {
     if (_adsRemoved) return;
     // Use test ad unit ID during development, replace with your real ad unit ID for production
@@ -652,92 +591,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          // Main content area
-          SafeArea(child: Column(
-            children: [
-              // Add top padding to account for banner ad or provide fallback spacing on camera page
-              Builder(
-                builder: (context) {
-                  final bool isLiveCamera = (_currentIndex == 1 && _pickedImageBytes == null);
-                  final double topSpacer = (!_adsRemoved && _isBannerLoaded && _bannerAd != null)
-                      ? _bannerAd!.size.height.toDouble()
-                      : (isLiveCamera ? (kToolbarHeight + 8) : 0.0);
-                  return topSpacer > 0 ? SizedBox(height: topSpacer) : const SizedBox.shrink();
-                },
-              ),
-              // Main content with adjusted spacing
-              Expanded(child: _buildBody()),
-            ],
-          )),
-          // Banner ad positioned at the top with higher z-index
-          if (!_adsRemoved && _isBannerLoaded && _bannerAd != null)
-            Positioned(
-              top: 0,
-              left: 0,
-              right: 0,
-              child: Container(
-                width: double.infinity,
-                height: _bannerAd!.size.height.toDouble(),
-                color: Theme.of(context).colorScheme.surface,
-                child: Center(
-                  child: SizedBox(
-                    width: _bannerAd!.size.width.toDouble(),
-                    height: _bannerAd!.size.height.toDouble(),
-                    child: AdWidget(ad: _bannerAd!),
-                  ),
-                ),
-              ),
-            ),
-          // Select image button - positioned at top right (only on camera page)
-          if (!kIsWeb && _currentIndex == 1)
-            Positioned(
-              top: (!_adsRemoved && _isBannerLoaded && _bannerAd != null)
-                  ? _bannerAd!.size.height.toDouble() + 16
-                  : 40,
-              right: 20,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: Colors.black.withOpacity(0.4),
-                  border: Border.all(
-                    color: Colors.white.withOpacity(0.3),
-                    width: 1.5,
-                  ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.3),
-                      blurRadius: 12,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () async {
-                    final bytes = await pickImageFromGallery();
-                    if (bytes != null) {
-                      await evaluateImage();
-                    }
-                  },
-                    borderRadius: BorderRadius.circular(28),
-                    child: Container(
-                      padding: const EdgeInsets.all(12),
-                      child: const Icon(
-                        Icons.photo_library_rounded,
-                        color: Colors.white,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          // Loading overlay on top
-          if (_isLoading) _buildLoadingOverlay(),
-        ],
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Main content with adjusted spacing
+            Expanded(child: _buildBody()),
+          ],
+        ),
       ),
       floatingActionButton: _currentIndex == 1
           ? Container(
@@ -829,9 +689,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildBody() {
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 300),
-      child: _currentIndex == 0
+    if (_currentIndex == 1) {
+      // Camera mode - layout preview vertically
+      return Column(
+        children: [
+          Expanded(child: _buildCameraPreview()),
+        ],
+      );
+    } else {
+      // Other tabs: render as before
+      return _currentIndex == 0
           ? _HomePageContent(
               onOpenCamera: () => setState(() {
                 _currentIndex = 1;
@@ -850,16 +717,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               recentTranslations: translationHistory,
               recentImages: imageHistory,
             )
-          : _currentIndex == 1
-              ? _buildCameraPreview()
-              : HistoryPage(
-                  translationHistory: translationHistory,
-                  imageHistory: imageHistory,
-                  favorites: favorites,
-                  onDeleteEntry: _deleteHistoryEntry,
-                  onToggleFavorite: _toggleFavorite,
-                ),
-    );
+          : HistoryPage(
+              translationHistory: translationHistory,
+              imageHistory: imageHistory,
+              favorites: favorites,
+              onDeleteEntry: _deleteHistoryEntry,
+              onToggleFavorite: _toggleFavorite,
+            );
+    }
   }
 
   Widget _buildCameraPreview() {

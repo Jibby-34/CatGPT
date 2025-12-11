@@ -173,6 +173,9 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final mediaPadding = MediaQuery.of(context).padding;
+    // Keep top controls below the app bar/status area to avoid overlap.
+    final double overlayTopPadding = mediaPadding.top + kToolbarHeight + 8;
     return LayoutBuilder(builder: (context, constraints) {
       final isWide = constraints.maxWidth >= 800;
 
@@ -204,9 +207,10 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
               child: Align(
                 alignment: Alignment.topRight,
                 child: Padding(
-                  padding: widget.adsRemoved
-                    ? EdgeInsets.only(top: MediaQuery.of(context).padding.top + 2, right: 8)
-                    : const EdgeInsets.all(12.0),
+                  padding: EdgeInsets.only(
+                    top: overlayTopPadding,
+                    right: widget.adsRemoved ? 8 : 12,
+                  ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
