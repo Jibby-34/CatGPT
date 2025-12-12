@@ -651,7 +651,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         ),
         child: SafeArea(
           child: Container(
-            height: 70,
             padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
           child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -731,22 +730,55 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final bg = isDark ? theme.colorScheme.surfaceVariant : Colors.black;
-    
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Main camera preview or captured image
-        _buildMainCameraContent(theme, isDark, bg),
-        
-        // Result overlay when there's output text
-        if (_outputText != null) _buildResultOverlay(theme),
-      ],
+    final mediaPadding = MediaQuery.of(context).padding;
+    // Reserve space for the status bar and AppBar/title area so the
+    // camera preview doesn't overlap the CatGPT logo.
+    // Keep the mandatory top offsets (status bar + toolbar)
+    final double topBarGap = mediaPadding.top + kToolbarHeight - 42;
+
+    return Padding(
+      padding: EdgeInsets.only(top: topBarGap),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          // Main camera preview or captured image
+          _buildMainCameraContent(theme, isDark, bg),
+
+          // Result overlay when there's output text
+          if (_outputText != null) _buildResultOverlay(theme),
+        ],
+      ),
     );
   }
 
   Widget _buildMainCameraContent(ThemeData theme, bool isDark, Color bg) {
-    // If we have a captured image, show it full screen
+    // If we have a captured image, show it scaled to match the live preview
     if (_pickedImageBytes != null) {
+      // If the camera controller is initialized we can mimic the preview's
+      // cover-scaling by using the preview's reported dimensions.
+      final previewSize = _cameraController?.value.previewSize;
+      if (_cameraController != null && _cameraController!.value.isInitialized && previewSize != null) {
+        // The plugin reports landscape sizes, swap to portrait dims.
+        final double previewWidth = previewSize.height;
+        final double previewHeight = previewSize.width;
+
+        return Container(
+          color: Colors.black,
+          child: FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: previewWidth,
+              height: previewHeight,
+              child: Image.memory(
+                _pickedImageBytes!,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        );
+      }
+
+      // Fallback: contain the image if we can't determine preview size.
       return Container(
         color: bg,
         child: Image.memory(
@@ -1185,7 +1217,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           },
           borderRadius: BorderRadius.circular(16),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 6),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
