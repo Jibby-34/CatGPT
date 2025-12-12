@@ -12,7 +12,6 @@ class CameraPage extends StatefulWidget {
   final Future<Uint8List?> Function() pickImage;
   final Future<void> Function() evaluateImage;
   final Function(Uint8List) onImageCaptured;
-  final bool adsRemoved;
 
   const CameraPage({
     super.key,
@@ -21,7 +20,6 @@ class CameraPage extends StatefulWidget {
     required this.pickImage,
     required this.evaluateImage,
     required this.onImageCaptured,
-    required this.adsRemoved,
   });
 
   @override
@@ -173,24 +171,12 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final mediaPadding = MediaQuery.of(context).padding;
-    // Leave room for the top bar/logo.
-    final double topBarGap = mediaPadding.top + kToolbarHeight + 8;
     return LayoutBuilder(builder: (context, constraints) {
       final isWide = constraints.maxWidth >= 800;
 
       return Stack(
         fit: StackFit.expand,
-        children: [
-          // Base fill so the padded camera preview has a solid backdrop.
-          Container(color: Colors.black),
-          // Push preview down below the header/logo and leave a bit above the capture area.
-          Positioned.fill(
-            top: topBarGap + 32, // increase to add vertical gap between logo/header and camera preview
-            bottom: 96,
-            child: _buildFullScreenCamera(theme),
-          ),
-
+              children: [
                 // Hidden share canvas
                 Offstage(
                   offstage: true,
@@ -203,6 +189,9 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                   ),
                 ),
 
+          // Full-screen camera (or states)
+          _buildFullScreenCamera(theme),
+
           // Result overlay: shows main answer and a button to reveal reasoning
           if (widget.outputText != null && !_hideResultOverlay)
             _buildResultOverlay(theme, isWide),
@@ -210,34 +199,13 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
           // Top overlay: camera and upload buttons
           if (!kIsWeb)
             SafeArea(
-              top: false, // top space is already reserved by the parent padding
               child: Align(
                 alignment: Alignment.topRight,
                 child: Padding(
-                  padding: EdgeInsets.only(
-                    top: 8,
-                    right: widget.adsRemoved ? 8 : 12,
-                  ),
+                  padding: const EdgeInsets.all(12.0),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Image button (gallery)
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black.withOpacity(0.35),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.6),
-                            width: 2,
-                          ),
-                        ),
-                        child: IconButton(
-                          onPressed: _pickImageFromGallery,
-                          icon: const Icon(Icons.image_rounded, color: Colors.white, size: 24),
-                          tooltip: 'Select Image',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
                       // Camera button
                       Container(
                         decoration: BoxDecoration(
@@ -260,10 +228,6 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
               ),
             ),
 
-          SizedBox(height: 16),
-          // In the Stack children, after the top overlay or logo, insert:
-          // SizedBox(height: 16),
-          // ... existing code ...
           if (_showReasoning && _reasoningText != null) _buildReasoningPopup(theme, isWide),
         ],
       );
@@ -273,43 +237,23 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   Widget _buildFullScreenCamera(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
     final bg = isDark ? theme.colorScheme.surfaceVariant : Colors.black;
-    Widget content;
-
-    // If we have a captured image, show it scaled but not full height
+    
+    // If we have a captured image, show it full screen
     if (widget.pickedImageBytes != null) {
-      // Try to match the live camera preview sizing when possible.
-      final previewSize = _cameraController?.value.previewSize;
-      if (_cameraController != null && _cameraController!.value.isInitialized && previewSize != null) {
-        final double previewWidth = previewSize.height;
-        final double previewHeight = previewSize.width;
-
-        content = Container(
-          color: Colors.black,
-          child: FittedBox(
-            fit: BoxFit.cover,
-            child: SizedBox(
-              width: previewWidth,
-              height: previewHeight,
-              child: Image.memory(widget.pickedImageBytes!, fit: BoxFit.cover),
-            ),
-          ),
-        );
-      } else {
-        content = Container(
-          color: bg,
-          child: Image.memory(
-            widget.pickedImageBytes!,
-            fit: BoxFit.contain,
-            width: double.infinity,
-            height: double.infinity,
-          ),
-        );
-      }
+    return Container(
+        color: bg,
+        child: Image.memory(
+          widget.pickedImageBytes!,
+          fit: BoxFit.contain,
+      width: double.infinity,
+          height: double.infinity,
+        ),
+      );
     }
 
     // Web fallback
-    else if (kIsWeb) {
-      content = Container(
+    if (kIsWeb) {
+      return Container(
         color: bg,
         child: Center(
           child: Column(
@@ -335,8 +279,8 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     }
 
     // Permission/state handling
-    else if (!_isCameraPermissionGranted) {
-      content = Container(
+    if (!_isCameraPermissionGranted) {
+      return Container(
         color: bg,
         child: const Center(
           child: Text('Camera permission required', style: TextStyle(color: Colors.white70)),
@@ -344,8 +288,8 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       );
     }
 
-    else if (!_isCameraInitialized || _cameraController == null) {
-      content = Container(
+    if (!_isCameraInitialized || _cameraController == null) {
+      return Container(
         color: bg,
         child: Center(
           child: Column(
@@ -360,32 +304,28 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       );
     }
 
-    // Cover-scaling camera preview
-    else {
-      final previewSize = _cameraController!.value.previewSize;
+    // Full-screen, cover-scaling camera preview
+    final previewSize = _cameraController!.value.previewSize;
 
-      if (previewSize == null) {
-        content = Container(color: bg);
-      } else {
-        // The plugin reports landscape size; swap to match portrait if needed
-        final double previewWidth = previewSize.height;
-        final double previewHeight = previewSize.width;
-
-        content = Container(
-          color: Colors.black,
-          child: FittedBox(
-            fit: BoxFit.cover,
-            child: SizedBox(
-              width: previewWidth,
-              height: previewHeight,
-              child: CameraPreview(_cameraController!),
-            ),
-          ),
-        );
-      }
+    if (previewSize == null) {
+      return Container(color: bg);
     }
 
-    return Container(color: bg, child: ClipRect(child: content));
+    // The plugin reports landscape size; swap to match portrait if needed
+    final double previewWidth = previewSize.height;
+    final double previewHeight = previewSize.width;
+
+    return Container(
+      color: Colors.black,
+      child: FittedBox(
+        fit: BoxFit.cover,
+        child: SizedBox(
+          width: previewWidth,
+          height: previewHeight,
+          child: CameraPreview(_cameraController!),
+        ),
+      ),
+    );
   }
 
   Widget _buildResultOverlay(ThemeData theme, bool isWide) {
@@ -393,7 +333,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     return Positioned(
       left: 14,
       right: 14,
-      bottom: 110, // sits just above the capture button
+      bottom: 72, // sits just above the capture button
       child: Center(
         child: ConstrainedBox(
           constraints: BoxConstraints(maxWidth: isWide ? 520 : 520),
@@ -488,7 +428,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     return Align(
       alignment: Alignment.bottomCenter,
       child: Padding(
-        padding: const EdgeInsets.only(bottom: 120.0), // centered just above result box
+        padding: const EdgeInsets.only(bottom: 84.0), // centered just above result box
         child: Material(
           elevation: 12,
           color: Colors.transparent,
@@ -600,7 +540,6 @@ class _StoryCanvas extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(width: 16),
                   const Spacer(),
                   Container(
                     padding: const EdgeInsets.all(28),

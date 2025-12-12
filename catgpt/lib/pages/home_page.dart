@@ -591,13 +591,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ),
         ],
       ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            // Main content with adjusted spacing
-            Expanded(child: _buildBody()),
-          ],
-        ),
+      body: Stack(
+        fit: StackFit.expand,
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                // Main content with adjusted spacing
+                Expanded(child: _buildBody()),
+              ],
+            ),
+          ),
+
+          // Global analyzing/loading overlay
+          if (_isLoading) _buildLoadingOverlay(),
+        ],
       ),
       floatingActionButton: _currentIndex == 1
           ? Container(
@@ -639,8 +647,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: isDark 
-              ? const Color(0xFF1E293B).withOpacity(0.95)
-              : Colors.white.withOpacity(0.95),
+              ? const Color(0xFF1E293B)
+              : Colors.white,
           boxShadow: [
             BoxShadow(
               color: Colors.black.withOpacity(0.05),
@@ -731,23 +739,25 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     final isDark = theme.brightness == Brightness.dark;
     final bg = isDark ? theme.colorScheme.surfaceVariant : Colors.black;
     final mediaPadding = MediaQuery.of(context).padding;
-    // Reserve space for the status bar and AppBar/title area so the
-    // camera preview doesn't overlap the CatGPT logo.
-    // Keep the mandatory top offsets (status bar + toolbar)
-    final double topBarGap = mediaPadding.top + kToolbarHeight - 42;
+    
+    // Small offset at the top for the AppBar and logo (40% of full gap)
+    final double topBarGap = (mediaPadding.top + kToolbarHeight + 16) * 0.40;
 
-    return Padding(
-      padding: EdgeInsets.only(top: topBarGap),
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          // Main camera preview or captured image
-          _buildMainCameraContent(theme, isDark, bg),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Full-screen camera preview (slightly offset downwards, extends to bottom behind navbar)
+        Positioned(
+          top: topBarGap,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _buildMainCameraContent(theme, isDark, bg),
+        ),
 
-          // Result overlay when there's output text
-          if (_outputText != null) _buildResultOverlay(theme),
-        ],
-      ),
+        // Result overlay when there's output text
+        if (_outputText != null) _buildResultOverlay(theme),
+      ],
     );
   }
 
@@ -970,6 +980,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Widget _buildResultOverlay(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
+    final mediaPadding = MediaQuery.of(context).padding;
     
     // Parse the output text to separate main text and reasoning
     final text = _outputText ?? '';
@@ -982,7 +993,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return Positioned(
       left: 16,
       right: 16,
-      bottom: 120, // sits just above the capture button
+      bottom: 96.0 + mediaPadding.bottom + 24, // sits above the navbar with padding
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
@@ -1202,7 +1213,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     required ThemeData theme,
   }) {
     final isActive = _currentIndex == index;
-    final isDark = theme.brightness == Brightness.dark;
     
     return Expanded(
       child: Material(
@@ -1650,7 +1660,6 @@ class _HomePageContent extends StatelessWidget {
     required Gradient gradient,
     required ThemeData theme,
   }) {
-    final isDark = theme.brightness == Brightness.dark;
     return Container(
       height: 64,
       decoration: BoxDecoration(
