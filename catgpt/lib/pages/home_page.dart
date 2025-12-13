@@ -42,6 +42,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   List<String> translationHistory = [];
   List<Uint8List?> imageHistory = [];
   Set<int> favorites = {}; // Track favorited entry indices
+  int _consecutiveNoCatCount = 0; // Track consecutive "no cat detected" responses
 
   final ImagePicker _picker = ImagePicker();
   SharedPreferences? _prefs;
@@ -107,6 +108,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       final favoritesList = _prefs!.getStringList('favorites') ?? [];
       // Start with false - will verify with store
       _adsRemoved = false;
+      _consecutiveNoCatCount = _prefs!.getInt('consecutiveNoCatCount') ?? 0;
       
       if (mounted) {
         setState(() {
@@ -126,6 +128,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     } catch (e) {
       debugPrint('Error loading preferences: $e');
     }
+  }
+
+  Future<void> _saveNoCatCount() async {
+    if (_prefs == null) return;
+    await _prefs!.setInt('consecutiveNoCatCount', _consecutiveNoCatCount);
   }
 
   // Future<void> _verifyPurchaseStatus() async {
@@ -432,6 +439,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Future<void> _onTakePhoto() async {
+    // Check if we need to show the ad prompt (2 consecutive no-cat responses)
+    final shouldPromptForAd = _consecutiveNoCatCount >= 3 && !_adsRemoved;
+
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       // Fallback to image picker if camera is not available
       final bytes = await pickImage();
@@ -445,11 +455,27 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         _pickedImageBytes = bytes;
         _outputText = null;
       });
+      
+      // If we should prompt for ad, show dialog first
+      if (shouldPromptForAd) {
+        final shouldProceed = await _showNoCatAdPrompt();
+        if (!shouldProceed) {
+          // User declined, delete the image
+          setState(() {
+            _pickedImageBytes = null;
+          });
+          return;
+        }
+        // User accepted, show ad then evaluate
+        await _showRewardedAdIfAvailable();
+      }
+      
       await evaluateImage();
       return;
     }
 
     try {
+      // Always take the picture first
       final XFile image = await _cameraController!.takePicture();
       final bytes = await image.readAsBytes();
       
@@ -457,6 +483,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         _pickedImageBytes = bytes;
         _outputText = null;
       });
+
+      // If we should prompt for ad, show dialog now
+      if (shouldPromptForAd) {
+        final shouldProceed = await _showNoCatAdPrompt();
+        if (!shouldProceed) {
+          // User declined, delete the image
+          setState(() {
+            _pickedImageBytes = null;
+          });
+          return;
+        }
+        // User accepted, show ad then evaluate
+        await _showRewardedAdIfAvailable();
+      }
+
       await evaluateImage();
     } catch (e) {
       debugPrint('Error taking picture: $e');
@@ -464,6 +505,116 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       ScaffoldMessenger.of(context)
           .showSnackBar(const SnackBar(content: Text('Error taking photo.')));
     }
+  }
+
+  /// Handles picking an image from gallery, showing ad prompt if needed, and translating
+  Future<void> _onSelectImageAndTranslate() async {
+    final shouldPromptForAd = _consecutiveNoCatCount >= 2 && !_adsRemoved;
+    final bytes = await pickImageFromGallery();
+    if (bytes == null) return;
+    setState(() {
+      _pickedImageBytes = bytes;
+      _outputText = null;
+    });
+    if (shouldPromptForAd) {
+      final shouldProceed = await _showNoCatAdPrompt();
+      if (!shouldProceed) {
+        // User declined, delete the image
+        setState(() {
+          _pickedImageBytes = null;
+        });
+        return;
+      }
+      await _showRewardedAdIfAvailable();
+    }
+    await evaluateImage();
+  }
+
+  Future<bool> _showNoCatAdPrompt() async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          backgroundColor: isDark
+              ? const Color(0xFF1E293B)
+              : Colors.white,
+          title: Row(
+            children: [
+              Icon(
+                Icons.videocam_rounded,
+                color: theme.colorScheme.primary,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Watch Ad to Translate',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'No-cat translations cost CPU time. Watch a quick ad to translate?',
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withOpacity(0.8),
+              fontSize: 15,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.tertiary,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text(
+                  'Watch Ad',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+    
+    return result ?? false;
   }
 
 
@@ -495,12 +646,20 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         setState(() => _outputText = text);
 
         if (!text.contains('No cat detected!')) {
+          // Cat detected - reset the consecutive no-cat count
+          _consecutiveNoCatCount = 0;
+          await _saveNoCatCount();
+          
           await _addHistoryEntry(text: text, imageBytes: _pickedImageBytes);
 
           // Show ad on every other translation, starting with the second (no ad on first)
           if (!_adsRemoved && translationHistory.length > 1 && translationHistory.length % 2 == 1) {
             await _showRewardedAdIfAvailable();
           }
+        } else {
+          // No cat detected - increment the consecutive count
+          _consecutiveNoCatCount++;
+          await _saveNoCatCount();
         }
       } else {
         debugPrint('Server error response (${response.statusCode}): \n${response.body}');
@@ -716,11 +875,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 _currentIndex = 2;
                 _outputText = null;
               }),
-              onUploadAndTranslate: () async {
-                final bytes = await pickImageFromGallery();
-                if (bytes == null) return;
-                await evaluateImage();
-              },
+              onUploadAndTranslate: _onSelectImageAndTranslate,
               onTakePhotoAndTranslate: _onTakePhoto,
               recentTranslations: translationHistory,
               recentImages: imageHistory,
@@ -774,11 +929,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 ),
               ),
               child: IconButton(
-                onPressed: () async {
-                  final bytes = await pickImageFromGallery();
-                  if (bytes == null) return;
-                  await evaluateImage();
-                },
+                onPressed: _onSelectImageAndTranslate,
                 icon: const Icon(Icons.photo_library_rounded, color: Colors.white, size: 24),
                 tooltip: 'Select Image',
               ),
@@ -882,11 +1033,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: ElevatedButton.icon(
-                onPressed: () async {
-                  final bytes = await pickImageFromGallery();
-                  if (bytes == null) return;
-                  await evaluateImage();
-                },
+                onPressed: _onSelectImageAndTranslate,
                     icon: const Icon(Icons.upload_file_rounded, color: Colors.white),
                     label: const Text(
                       'Upload Image',
