@@ -253,12 +253,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     } else {
       // Check platform and use appropriate ad unit ID
       if (Platform.isAndroid) {
-        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-8779910258241973/3872170088');
+        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-6637557002473159/5599342776');
       } else if (Platform.isIOS) {
-        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-8779910258241973/3820030354');
+        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-6637557002473159/2893288388');
       } else {
         // Fallback for other platforms
-        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-8779910258241973/3872170088');
+        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-6637557002473159/5599342776');
       }
     }
     

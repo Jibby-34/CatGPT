@@ -30,7 +30,7 @@
         <!-- ✅ AdMob App ID -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-6076315103458124~4607662796" />
+            android:value="ca-app-pub-6637557002473159~5443236581" />
 
         <activity
             android:name="com.blinklabs.catgpt.MainActivity"
