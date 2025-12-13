@@ -829,7 +829,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         ),
         child: SafeArea(
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 6),
           child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -1186,12 +1186,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               color: isDark
                   ? const Color(0xFF1E293B).withOpacity(0.98)
                   : Colors.white.withOpacity(0.98),
-              borderRadius: BorderRadius.circular(24),
+              borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.3),
-                  blurRadius: 24,
-                  offset: const Offset(0, 12),
+                  blurRadius: 20,
+                  offset: const Offset(0, 10),
                 ),
               ],
               border: Border.all(
@@ -1199,7 +1199,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 width: 1.5,
               ),
             ),
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1207,30 +1207,30 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.all(6),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.primary.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
                       child: Icon(
                         Icons.pets_rounded,
-                        size: 20,
+                        size: 18,
                         color: theme.colorScheme.primary,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    const SizedBox(width: 10),
                     Expanded(
                       child: Text(
                         mainText,
                         style: TextStyle(
-                          fontSize: 16,
-                          height: 1.4,
+                          fontSize: 15,
+                          height: 1.35,
                           color: theme.colorScheme.onSurface,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    const SizedBox(width: 6),
                     Container(
                       decoration: BoxDecoration(
                         color: theme.colorScheme.error.withOpacity(0.1),
@@ -1242,96 +1242,105 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                     },
                     icon: Icon(
                       Icons.close_rounded,
-                      size: 18,
+                      size: 16,
                       color: theme.colorScheme.error,
                     ),
-                    padding: const EdgeInsets.all(6),
+                    padding: const EdgeInsets.all(5),
                     constraints: const BoxConstraints(),
                   ),
                 ),
               ],
             ),
-                if (reasoningText != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.primary.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.psychology_rounded,
-                          size: 16,
-                          color: theme.colorScheme.primary,
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            reasoningText,
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: theme.colorScheme.onSurface.withOpacity(0.7),
-                            ),
+                if ((reasoningText != null) || (_pickedImageBytes != null && _outputText != null)) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      if (reasoningText != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-                ],
-                if (_pickedImageBytes != null && _outputText != null) ...[
-                  const SizedBox(height: 12),
-                  Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        colors: [
-                          theme.colorScheme.primary,
-                          theme.colorScheme.tertiary,
-                        ],
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                    onTap: () async {
-                      try {
-                        await ShareService.shareInstagramStyle(
-                          imageBytes: _pickedImageBytes!,
-                          text: _outputText!,
-                          context: context,
-                        );
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error sharing: ${e.toString()}')),
-                          );
-                        }
-                      }
-                    },
-                        borderRadius: BorderRadius.circular(12),
-                    child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              const Icon(Icons.share_rounded, color: Colors.white, size: 18),
-                              const SizedBox(width: 8),
-                              Text(
-                                'Share',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w600,
-                                  fontSize: 14,
+                              Icon(
+                                Icons.psychology_rounded,
+                                size: 14,
+                                color: theme.colorScheme.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  reasoningText!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                    ),
+                      ],
+                      if (reasoningText != null && _pickedImageBytes != null && _outputText != null)
+                        const SizedBox(width: 8),
+                      if (_pickedImageBytes != null && _outputText != null)
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                theme.colorScheme.primary,
+                                theme.colorScheme.tertiary,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () async {
+                                try {
+                                  await ShareService.shareInstagramStyle(
+                                    imageBytes: _pickedImageBytes!,
+                                    text: _outputText!,
+                                    context: context,
+                                  );
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error sharing: ${e.toString()}')),
+                                    );
+                                  }
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.share_rounded, color: Colors.white, size: 16),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      'Share',
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
-                ),
                 ],
               ],
             ),
@@ -1411,32 +1420,32 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           },
           borderRadius: BorderRadius.circular(16),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 AnimatedContainer(
                   duration: const Duration(milliseconds: 200),
-                  padding: const EdgeInsets.all(8),
+                  padding: const EdgeInsets.all(6),
                   decoration: BoxDecoration(
                     color: isActive
                         ? theme.colorScheme.primary.withOpacity(0.15)
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   child: Icon(
                     isActive ? activeIcon : icon,
-                    size: 24,
+                    size: 22,
                     color: isActive
                         ? theme.colorScheme.primary
                         : theme.colorScheme.onSurface.withOpacity(0.5),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 3),
                 AnimatedDefaultTextStyle(
                   duration: const Duration(milliseconds: 200),
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 10,
                     fontWeight: isActive ? FontWeight.w600 : FontWeight.w500,
                     color: isActive
                         ? theme.colorScheme.primary

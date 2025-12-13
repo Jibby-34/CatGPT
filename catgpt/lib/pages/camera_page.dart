@@ -255,17 +255,25 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     final isDark = theme.brightness == Brightness.dark;
     final bg = isDark ? theme.colorScheme.surfaceVariant : Colors.black;
     
-    // If we have a captured image, show it full screen
-    if (widget.pickedImageBytes != null && constraints != null) {
+    // If we have a captured/picked image, show it with proper aspect ratio
+    if (widget.pickedImageBytes != null) {
       return Container(
         color: bg,
-        alignment: Alignment.center,
-        child: FittedBox(
-          fit: BoxFit.contain,
-          child: Image.memory(widget.pickedImageBytes!),
+        width: double.infinity,
+        height: double.infinity,
+        child: Center(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return Image.memory(
+                widget.pickedImageBytes!,
+                fit: BoxFit.contain,
+                width: constraints.maxWidth,
+                height: constraints.maxHeight,
+              );
+            },
+          ),
         ),
       );
-
     }
 
     // Web fallback
@@ -321,26 +329,47 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       );
     }
 
-    // Full-screen, cover-scaling camera preview
+    // Camera preview with proper aspect ratio handling
     final previewSize = _cameraController!.value.previewSize;
-
+    
     if (previewSize == null) {
       return Container(color: bg);
     }
 
-    // The plugin reports landscape size; swap to match portrait if needed
-    final double previewWidth = previewSize.height;
-    final double previewHeight = previewSize.width;
-
+    // Calculate aspect ratio - preview size is in camera's native orientation
+    // For portrait display, we need the aspect ratio that fits the screen
     return Container(
       color: Colors.black,
-      child: FittedBox(
-        fit: BoxFit.cover,
-        child: SizedBox(
-          width: previewWidth,
-          height: previewHeight,
-          child: CameraPreview(_cameraController!),
-        ),
+      width: double.infinity,
+      height: double.infinity,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Calculate the aspect ratio of the preview
+          // Preview size is typically landscape (width > height)
+          // For portrait display, we want height/width
+          final double previewAspectRatio = previewSize.height / previewSize.width;
+          final double screenAspectRatio = constraints.maxHeight / constraints.maxWidth;
+          
+          // Determine the size that fits within the constraints while maintaining aspect ratio
+          double width, height;
+          if (previewAspectRatio > screenAspectRatio) {
+            // Preview is taller relative to screen - fit to height
+            height = constraints.maxHeight;
+            width = height / previewAspectRatio;
+          } else {
+            // Preview is wider relative to screen - fit to width
+            width = constraints.maxWidth;
+            height = width * previewAspectRatio;
+          }
+          
+          return Center(
+            child: SizedBox(
+              width: width,
+              height: height,
+              child: CameraPreview(_cameraController!),
+            ),
+          );
+        },
       ),
     );
   }
