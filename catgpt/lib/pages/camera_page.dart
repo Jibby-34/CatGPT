@@ -173,16 +173,9 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     final theme = Theme.of(context);
     return LayoutBuilder(builder: (context, constraints) {
       final isWide = constraints.maxWidth >= 800;
-      // Compute a top offset for the buttons
-      final double statusBar = MediaQuery.of(context).padding.top;
-      // Move buttons higher by using a more negative top value
-      final double topPosition = statusBar > 0 
-          ? -(statusBar + 100.0)  // Move 100px above status bar
-          : -150.0;  // For desktop/web, move 150px up from top
 
       return Stack(
         fit: StackFit.expand,
-        clipBehavior: Clip.none,
         children: [
           // Hidden share canvas
           Offstage(
@@ -197,7 +190,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
           ),
 
           // Full-screen camera (or states)
-          _buildFullScreenCamera(theme),
+          _buildFullScreenCamera(theme, constraints),
 
           // Result overlay: shows main answer and a button to reveal reasoning
           if (widget.outputText != null && !_hideResultOverlay)
@@ -205,46 +198,50 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 
           // Top overlay: camera and upload buttons
           if (!kIsWeb)
-            Positioned(
-              top: topPosition,
-              right: 12.0,
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Select image button
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.black.withOpacity(0.35),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.6),
-                        width: 2,
+            SafeArea(
+              child: Align(
+                alignment: Alignment.topRight,
+                child: Padding(
+                  padding: const EdgeInsets.all(12.0),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Image button (gallery)
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withOpacity(0.35),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.6),
+                            width: 2,
+                          ),
+                        ),
+                        child: IconButton(
+                          onPressed: _pickImageFromGallery,
+                          icon: const Icon(Icons.image_rounded, color: Colors.white, size: 24),
+                          tooltip: 'Select Image',
+                        ),
                       ),
-                    ),
-                    child: IconButton(
-                      onPressed: _pickImageFromGallery,
-                      icon: const Icon(Icons.photo_library_rounded, color: Colors.white, size: 24),
-                      tooltip: 'Select Image',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Camera button
-                  Container(
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.black.withOpacity(0.35),
-                      border: Border.all(
-                        color: Colors.white.withOpacity(0.6),
-                        width: 2,
+                      const SizedBox(width: 12),
+                      // Camera button
+                      Container(
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Colors.black.withOpacity(0.35),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.6),
+                            width: 2,
+                          ),
+                        ),
+                        child: IconButton(
+                          onPressed: _takePicture,
+                          icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 24),
+                          tooltip: 'Take Photo',
+                        ),
                       ),
-                    ),
-                    child: IconButton(
-                      onPressed: _takePicture,
-                      icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 24),
-                      tooltip: 'Take Photo',
-                    ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
 
@@ -254,21 +251,21 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     });
   }
 
-  Widget _buildFullScreenCamera(ThemeData theme) {
+  Widget _buildFullScreenCamera(ThemeData theme, [BoxConstraints? constraints]) {
     final isDark = theme.brightness == Brightness.dark;
     final bg = isDark ? theme.colorScheme.surfaceVariant : Colors.black;
     
     // If we have a captured image, show it full screen
-    if (widget.pickedImageBytes != null) {
-    return Container(
+    if (widget.pickedImageBytes != null && constraints != null) {
+      return Container(
         color: bg,
-        child: Image.memory(
-          widget.pickedImageBytes!,
+        alignment: Alignment.center,
+        child: FittedBox(
           fit: BoxFit.contain,
-      width: double.infinity,
-          height: double.infinity,
+          child: Image.memory(widget.pickedImageBytes!),
         ),
       );
+
     }
 
     // Web fallback

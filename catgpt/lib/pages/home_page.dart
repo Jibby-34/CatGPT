@@ -497,7 +497,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         if (!text.contains('No cat detected!')) {
           await _addHistoryEntry(text: text, imageBytes: _pickedImageBytes);
 
-          if (!_adsRemoved) {
+          // Show ad on every other translation, starting with the second (no ad on first)
+          if (!_adsRemoved && translationHistory.length > 1 && translationHistory.length % 2 == 1) {
             await _showRewardedAdIfAvailable();
           }
         }

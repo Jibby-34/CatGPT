@@ -466,7 +466,7 @@ class _HistoryPageState extends State<HistoryPage> {
     final end = text.indexOf(']');
     if (start != -1 && end != -1 && end > start) {
       final inside = text.substring(start + 1, end);
-      return 'Reasons: $inside';
+      return 'Reasoning: $inside';
     }
     return 'Tap to view full analysis';
   }
