@@ -467,6 +467,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           return;
         }
         // User accepted, show ad then evaluate
+        // Reset the counter since they watched the ad
+        _consecutiveNoCatCount = 0;
+        await _saveNoCatCount();
         await _showRewardedAdIfAvailable();
       }
       
@@ -495,6 +498,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           return;
         }
         // User accepted, show ad then evaluate
+        // Reset the counter since they watched the ad
+        _consecutiveNoCatCount = 0;
+        await _saveNoCatCount();
         await _showRewardedAdIfAvailable();
       }
 
@@ -509,7 +515,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   /// Handles picking an image from gallery, showing ad prompt if needed, and translating
   Future<void> _onSelectImageAndTranslate() async {
-    final shouldPromptForAd = _consecutiveNoCatCount >= 2 && !_adsRemoved;
+    final shouldPromptForAd = _consecutiveNoCatCount >= 3 && !_adsRemoved;
     final bytes = await pickImageFromGallery();
     if (bytes == null) return;
     setState(() {
@@ -525,6 +531,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         });
         return;
       }
+      // User accepted, show ad then evaluate
+      // Reset the counter since they watched the ad
+      _consecutiveNoCatCount = 0;
+      await _saveNoCatCount();
       await _showRewardedAdIfAvailable();
     }
     await evaluateImage();
@@ -1655,16 +1665,29 @@ class _HomePageContent extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 16),
-                  ...recentItems.map((idx) {
+                  ...recentItems.asMap().entries.map((entry) {
+                    final itemIndex = entry.key;
+                    final idx = entry.value;
                     final text = recentTranslations[idx];
                     final img = idx < recentImages.length ? recentImages[idx] : null;
+                    final isEven = itemIndex % 2 == 0;
                     return Container(
-                      margin: const EdgeInsets.only(bottom: 12),
+                      margin: const EdgeInsets.only(bottom: 20),
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? const Color(0xFF1E293B)
-                            : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: isDark
+                              ? [
+                                  const Color(0xFF1E293B).withOpacity(1.0),
+                                  const Color(0xFF1E293B).withOpacity(0.85),
+                                ]
+                              : [
+                                  Colors.white.withOpacity(0.98),
+                                  Colors.white.withOpacity(0.92),
+                                ],
+                        ),
+                        borderRadius: BorderRadius.circular(24),
                         border: Border.all(
                           color: isDark
                               ? Colors.white.withOpacity(0.1)
@@ -1673,9 +1696,13 @@ class _HomePageContent extends StatelessWidget {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(isDark ? 0.3 : 0.05),
-                            blurRadius: 12,
-                            offset: const Offset(0, 4),
+                            color: Colors.black.withOpacity(
+                              isDark 
+                                ? (isEven ? 0.12 : 0.15)
+                                : (isEven ? 0.08 : 0.12),
+                            ),
+                            blurRadius: 10,
+                            offset: Offset(0, isEven ? 4 : 6),
                           ),
                         ],
                       ),
@@ -1683,7 +1710,7 @@ class _HomePageContent extends StatelessWidget {
                         color: Colors.transparent,
                         child: InkWell(
                           onTap: onOpenHistory,
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(24),
                           child: Padding(
                             padding: const EdgeInsets.all(16),
                       child: Row(
@@ -1694,7 +1721,18 @@ class _HomePageContent extends StatelessWidget {
                                   height: 56,
                             decoration: BoxDecoration(
                                     color: theme.colorScheme.primary.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(16),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(
+                                      color: Colors.white.withOpacity(0.4),
+                                      width: 1.5,
+                                    ),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.08),
+                                        blurRadius: 6,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
                               image: img != null
                                         ? DecorationImage(
                                             image: MemoryImage(img),
