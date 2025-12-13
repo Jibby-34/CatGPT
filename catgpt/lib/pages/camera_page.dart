@@ -173,21 +173,28 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     final theme = Theme.of(context);
     return LayoutBuilder(builder: (context, constraints) {
       final isWide = constraints.maxWidth >= 800;
+      // Compute a top offset for the buttons
+      final double statusBar = MediaQuery.of(context).padding.top;
+      // Move buttons higher by using a more negative top value
+      final double topPosition = statusBar > 0 
+          ? -(statusBar + 100.0)  // Move 100px above status bar
+          : -150.0;  // For desktop/web, move 150px up from top
 
       return Stack(
         fit: StackFit.expand,
-              children: [
-                // Hidden share canvas
-                Offstage(
-                  offstage: true,
-                  child: RepaintBoundary(
-                    key: _storyKey,
-                    child: _StoryCanvas(
-                      imageBytes: widget.pickedImageBytes,
-                      text: widget.outputText ?? '',
-                    ),
-                  ),
-                ),
+        clipBehavior: Clip.none,
+        children: [
+          // Hidden share canvas
+          Offstage(
+            offstage: true,
+            child: RepaintBoundary(
+              key: _storyKey,
+              child: _StoryCanvas(
+                imageBytes: widget.pickedImageBytes,
+                text: widget.outputText ?? '',
+              ),
+            ),
+          ),
 
           // Full-screen camera (or states)
           _buildFullScreenCamera(theme),
@@ -198,33 +205,46 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
 
           // Top overlay: camera and upload buttons
           if (!kIsWeb)
-            SafeArea(
-              child: Align(
-                alignment: Alignment.topRight,
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Camera button
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black.withOpacity(0.35),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.6),
-                            width: 2,
-                          ),
-                        ),
-                        child: IconButton(
-                          onPressed: _takePicture,
-                          icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 24),
-                          tooltip: 'Take Photo',
-                        ),
+            Positioned(
+              top: topPosition,
+              right: 12.0,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Select image button
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black.withOpacity(0.35),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.6),
+                        width: 2,
                       ),
-                    ],
+                    ),
+                    child: IconButton(
+                      onPressed: _pickImageFromGallery,
+                      icon: const Icon(Icons.photo_library_rounded, color: Colors.white, size: 24),
+                      tooltip: 'Select Image',
+                    ),
                   ),
-                ),
+                  const SizedBox(width: 12),
+                  // Camera button
+                  Container(
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: Colors.black.withOpacity(0.35),
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.6),
+                        width: 2,
+                      ),
+                    ),
+                    child: IconButton(
+                      onPressed: _takePicture,
+                      icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 24),
+                      tooltip: 'Take Photo',
+                    ),
+                  ),
+                ],
               ),
             ),
 

@@ -757,6 +757,32 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
         // Result overlay when there's output text
         if (_outputText != null) _buildResultOverlay(theme),
+
+        // Top overlay: select image button (overlays camera preview)
+        if (!kIsWeb)
+          Positioned(
+            top: topBarGap - 20,  // Moved higher above the camera preview
+            right: 12,
+            child: Container(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black.withOpacity(0.35),
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.6),
+                  width: 2,
+                ),
+              ),
+              child: IconButton(
+                onPressed: () async {
+                  final bytes = await pickImageFromGallery();
+                  if (bytes == null) return;
+                  await evaluateImage();
+                },
+                icon: const Icon(Icons.photo_library_rounded, color: Colors.white, size: 24),
+                tooltip: 'Select Image',
+              ),
+            ),
+          ),
       ],
     );
   }
