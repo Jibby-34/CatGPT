@@ -9,12 +9,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
-import 'package:camera/camera.dart';
 // import 'package:in_app_purchase/in_app_purchase.dart';
 import '../constants/purchase_constants.dart';
 
 import 'history_page.dart';
 import 'settings_page.dart';
+import 'camera_page.dart';
 import '../services/share_service.dart';
 
 class HomePage extends StatefulWidget {
@@ -46,16 +46,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   final ImagePicker _picker = ImagePicker();
   SharedPreferences? _prefs;
+  final GlobalKey<CameraPageState> _cameraPageKey = GlobalKey<CameraPageState>();
   
   // In-app purchase
   // final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   // StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
-  
-  // Camera related variables
-  CameraController? _cameraController;
-  List<CameraDescription>? _cameras;
-  bool _isCameraInitialized = false;
-  bool _isCameraPermissionGranted = false;
 
   @override
   void initState() {
@@ -75,29 +70,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (!_adsRemoved) {
       _loadRewardedAd();
     }
-    _initializeCamera();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     // _purchaseSubscription?.cancel();
-    _cameraController?.dispose();
     _rewardedAd?.dispose();
     super.dispose();
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_cameraController == null || !_cameraController!.value.isInitialized) {
-      return;
-    }
-
-    if (state == AppLifecycleState.inactive) {
-      _cameraController?.dispose();
-    } else if (state == AppLifecycleState.resumed) {
-      _initializeCamera();
-    }
   }
 
   Future<void> _loadPrefsAndHistory() async {
@@ -290,37 +270,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _loadRewardedAd();
   }
 
-  Future<void> _initializeCamera() async {
-    if (kIsWeb) return; // Camera preview not supported on web
-    
-    try {
-      _cameras = await availableCameras();
-      if (_cameras!.isEmpty) return;
-
-      _cameraController = CameraController(
-        _cameras![0],
-        ResolutionPreset.high,
-        enableAudio: false,
-      );
-
-      await _cameraController!.initialize();
-      
-      if (mounted) {
-        setState(() {
-          _isCameraInitialized = true;
-          _isCameraPermissionGranted = true;
-        });
-      }
-    } catch (e) {
-      debugPrint('Error initializing camera: $e');
-      if (mounted) {
-        setState(() {
-          _isCameraPermissionGranted = false;
-        });
-      }
-    }
-  }
-
   void _resetCameraState() {
     setState(() {
       _pickedImageBytes = null;
@@ -438,79 +387,54 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  Future<void> _onTakePhoto() async {
+  Future<void> _handleImageCaptured(Uint8List bytes) async {
     // Check if we need to show the ad prompt (2 consecutive no-cat responses)
     final shouldPromptForAd = _consecutiveNoCatCount >= 3 && !_adsRemoved;
 
-    if (_cameraController == null || !_cameraController!.value.isInitialized) {
-      // Fallback to image picker if camera is not available
-      final bytes = await pickImage();
-      if (bytes == null) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context)
-            .showSnackBar(const SnackBar(content: Text('No image selected.')));
+    setState(() {
+      _pickedImageBytes = bytes;
+      _outputText = null;
+    });
+    
+    // If we should prompt for ad, show dialog first
+    if (shouldPromptForAd) {
+      final shouldProceed = await _showNoCatAdPrompt();
+      if (!shouldProceed) {
+        // User declined, delete the image
+        setState(() {
+          _pickedImageBytes = null;
+        });
         return;
       }
-      setState(() {
-        _pickedImageBytes = bytes;
-        _outputText = null;
-      });
-      
-      // If we should prompt for ad, show dialog first
-      if (shouldPromptForAd) {
-        final shouldProceed = await _showNoCatAdPrompt();
-        if (!shouldProceed) {
-          // User declined, delete the image
-          setState(() {
-            _pickedImageBytes = null;
-          });
-          return;
-        }
-        // User accepted, show ad then evaluate
-        // Reset the counter since they watched the ad
-        _consecutiveNoCatCount = 0;
-        await _saveNoCatCount();
-        await _showRewardedAdIfAvailable();
-      }
-      
-      await evaluateImage();
-      return;
+      // User accepted, show ad then evaluate
+      // Reset the counter since they watched the ad
+      _consecutiveNoCatCount = 0;
+      await _saveNoCatCount();
+      await _showRewardedAdIfAvailable();
     }
+    
+    await evaluateImage();
+  }
 
-    try {
-      // Always take the picture first
-      final XFile image = await _cameraController!.takePicture();
-      final bytes = await image.readAsBytes();
-      
-      setState(() {
-        _pickedImageBytes = bytes;
-        _outputText = null;
-      });
-
-      // If we should prompt for ad, show dialog now
-      if (shouldPromptForAd) {
-        final shouldProceed = await _showNoCatAdPrompt();
-        if (!shouldProceed) {
-          // User declined, delete the image
-          setState(() {
-            _pickedImageBytes = null;
-          });
-          return;
-        }
-        // User accepted, show ad then evaluate
-        // Reset the counter since they watched the ad
-        _consecutiveNoCatCount = 0;
-        await _saveNoCatCount();
-        await _showRewardedAdIfAvailable();
+  Future<void> _onTakePhoto() async {
+    // If we're on camera tab and CameraPage has an initialized camera, use it
+    if (_currentIndex == 1 && _cameraPageKey.currentState != null) {
+      final cameraState = _cameraPageKey.currentState!;
+      if (cameraState.isCameraReady) {
+        await cameraState.takePicture();
+        return;
       }
-
-      await evaluateImage();
-    } catch (e) {
-      debugPrint('Error taking picture: $e');
+    }
+    
+    // Fallback to image picker if camera is not available (for home page)
+    final bytes = await pickImage();
+    if (bytes == null) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Error taking photo.')));
+          .showSnackBar(const SnackBar(content: Text('No image selected.')));
+      return;
     }
+    await _handleImageCaptured(bytes);
   }
 
   /// Handles picking an image from gallery, showing ad prompt if needed, and translating
@@ -697,45 +621,76 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       extendBodyBehindAppBar: true,
       appBar: AppBar(
         centerTitle: true,
-        title: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: isDark 
-                ? Colors.white.withOpacity(0.1) 
-                : Colors.black.withOpacity(0.05),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: isDark 
-                  ? Colors.white.withOpacity(0.1) 
-                  : Colors.black.withOpacity(0.08),
-              width: 1,
-            ),
-          ),
-          child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-              CatGptLogo(size: 28, isDark: widget.isDarkMode),
-              const SizedBox(width: 10),
-              Text(
-                'CatGPT',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: -0.3,
-                  color: theme.colorScheme.onSurface,
+        title: _currentIndex == 1 
+          ? null // Hide logo on camera page
+          : Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              decoration: BoxDecoration(
+                color: isDark 
+                    ? Colors.white.withOpacity(0.1) 
+                    : Colors.black.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isDark 
+                      ? Colors.white.withOpacity(0.1) 
+                      : Colors.black.withOpacity(0.08),
+                  width: 1,
                 ),
               ),
-            ],
-          ),
-        ),
+              child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                  CatGptLogo(size: 28, isDark: widget.isDarkMode),
+                  const SizedBox(width: 10),
+                  Text(
+                    'CatGPT',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: -0.3,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ],
+              ),
+            ),
         actions: [
+          // Select image button (only on camera page, to the left of settings)
+          if (_currentIndex == 1 && !kIsWeb)
+            Container(
+              margin: const EdgeInsets.only(right: 8),
+              decoration: BoxDecoration(
+                color: Colors.black.withOpacity(0.35),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: Colors.white.withOpacity(0.6),
+                  width: 2,
+                ),
+              ),
+              child: IconButton(
+                onPressed: _onSelectImageAndTranslate,
+                icon: const Icon(Icons.photo_library_rounded, color: Colors.white, size: 24),
+                tooltip: 'Select Image',
+              ),
+            ),
+          // Settings button
           Container(
             margin: const EdgeInsets.only(right: 8),
             decoration: BoxDecoration(
-              color: isDark 
-                  ? Colors.white.withOpacity(0.1) 
-                  : Colors.black.withOpacity(0.05),
+              // On camera page, match the image select button style
+              color: _currentIndex == 1
+                  ? Colors.black.withOpacity(0.35)
+                  : (isDark 
+                      ? Colors.white.withOpacity(0.1) 
+                      : Colors.black.withOpacity(0.05)),
               shape: BoxShape.circle,
+              // Add border on camera page to match image select button
+              border: _currentIndex == 1
+                  ? Border.all(
+                      color: Colors.white.withOpacity(0.6),
+                      width: 2,
+                    )
+                  : null,
             ),
             child: IconButton(
             onPressed: () {
@@ -754,7 +709,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             },
               icon: Icon(
                 Icons.settings_rounded,
-                color: theme.colorScheme.onSurface,
+                color: _currentIndex == 1
+                    ? Colors.white
+                    : theme.colorScheme.onSurface,
+                size: _currentIndex == 1 ? 24 : null,
               ),
             tooltip: 'Settings',
             ),
@@ -764,20 +722,28 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       body: Stack(
         fit: StackFit.expand,
         children: [
-          SafeArea(
-            child: Column(
-              children: [
-                // Main content with adjusted spacing
-                Expanded(child: _buildBody()),
-              ],
-            ),
-          ),
+          // For camera page, don't use SafeArea so preview extends to top
+          // For other pages, use SafeArea to respect system UI
+          _currentIndex == 1
+              ? Column(
+                  children: [
+                    Expanded(child: _buildBody()),
+                  ],
+                )
+              : SafeArea(
+                  child: Column(
+                    children: [
+                      // Main content with adjusted spacing
+                      Expanded(child: _buildBody()),
+                    ],
+                  ),
+                ),
 
           // Global analyzing/loading overlay
           if (_isLoading) _buildLoadingOverlay(),
         ],
       ),
-      floatingActionButton: _currentIndex == 1
+      floatingActionButton: _currentIndex == 1 && _pickedImageBytes == null
           ? Container(
               width: 80,
               height: 80,
@@ -867,11 +833,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Widget _buildBody() {
     if (_currentIndex == 1) {
-      // Camera mode - layout preview vertically
-      return Column(
-        children: [
-          Expanded(child: _buildCameraPreview()),
-        ],
+      // Camera mode
+      return CameraPage(
+        key: _cameraPageKey,
+        pickedImageBytes: _pickedImageBytes,
+        outputText: _outputText,
+        onImageCaptured: _handleImageCaptured,
+        onSelectImage: _onSelectImageAndTranslate,
+        onReset: _resetCameraState,
+        evaluateImage: evaluateImage,
       );
     } else {
       // Other tabs: render as before
@@ -900,455 +870,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
   }
 
-  Widget _buildCameraPreview() {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark ? theme.colorScheme.surfaceVariant : Colors.black;
-    final mediaPadding = MediaQuery.of(context).padding;
-    
-    // Small offset at the top for the AppBar and logo (40% of full gap)
-    final double topBarGap = (mediaPadding.top + kToolbarHeight + 16) * 0.40;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Full-screen camera preview (slightly offset downwards, extends to bottom behind navbar)
-        Positioned(
-          top: topBarGap,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          child: _buildMainCameraContent(theme, isDark, bg),
-        ),
-
-        // Result overlay when there's output text
-        if (_outputText != null) _buildResultOverlay(theme),
-
-        // Top overlay: select image button (overlays camera preview)
-        if (!kIsWeb)
-          Positioned(
-            top: topBarGap - 20,  // Moved higher above the camera preview
-            right: 12,
-            child: Container(
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.black.withOpacity(0.35),
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.6),
-                  width: 2,
-                ),
-              ),
-              child: IconButton(
-                onPressed: _onSelectImageAndTranslate,
-                icon: const Icon(Icons.photo_library_rounded, color: Colors.white, size: 24),
-                tooltip: 'Select Image',
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _buildMainCameraContent(ThemeData theme, bool isDark, Color bg) {
-    // If we have a captured image, show it scaled to match the live preview
-    if (_pickedImageBytes != null) {
-      // If the camera controller is initialized we can mimic the preview's
-      // cover-scaling by using the preview's reported dimensions.
-      final previewSize = _cameraController?.value.previewSize;
-      if (_cameraController != null && _cameraController!.value.isInitialized && previewSize != null) {
-        // The plugin reports landscape sizes, swap to portrait dims.
-        final double previewWidth = previewSize.height;
-        final double previewHeight = previewSize.width;
-
-        return Container(
-          color: Colors.black,
-          child: FittedBox(
-            fit: BoxFit.cover,
-            child: SizedBox(
-              width: previewWidth,
-              height: previewHeight,
-              child: Image.memory(
-                _pickedImageBytes!,
-                fit: BoxFit.cover,
-              ),
-            ),
-          ),
-        );
-      }
-
-      // Fallback: contain the image if we can't determine preview size.
-      return Container(
-        color: bg,
-        child: Image.memory(
-          _pickedImageBytes!,
-          fit: BoxFit.contain,
-          width: double.infinity,
-          height: double.infinity,
-        ),
-      );
-    }
-
-    // Web fallback
-    if (kIsWeb) {
-      return Container(
-        color: bg,
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF1E293B).withOpacity(0.8)
-                  : Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: isDark
-                    ? Colors.white.withOpacity(0.1)
-                    : Colors.black.withOpacity(0.05),
-                width: 1,
-              ),
-            ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.15),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.camera_alt_outlined,
-                    size: 48,
-                    color: theme.colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Camera preview not available on web',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 24),
-                Container(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        theme.colorScheme.primary,
-                        theme.colorScheme.tertiary,
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: ElevatedButton.icon(
-                onPressed: _onSelectImageAndTranslate,
-                    icon: const Icon(Icons.upload_file_rounded, color: Colors.white),
-                    label: const Text(
-                      'Upload Image',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.transparent,
-                      shadowColor: Colors.transparent,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Permission/state handling
-    if (!_isCameraPermissionGranted) {
-      return Container(
-        color: bg,
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF1E293B).withOpacity(0.8)
-                  : Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  Icons.camera_alt_outlined,
-                  size: 48,
-                  color: theme.colorScheme.error,
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  'Camera permission required',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    if (!_isCameraInitialized || _cameraController == null) {
-      return Container(
-        color: bg,
-        child: Center(
-          child: Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF1E293B).withOpacity(0.8)
-                  : Colors.white.withOpacity(0.9),
-              borderRadius: BorderRadius.circular(24),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(
-                  color: theme.colorScheme.primary,
-                  strokeWidth: 3,
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Initializing camera...',
-                  style: TextStyle(
-                    color: theme.colorScheme.onSurface,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      );
-    }
-
-    // Full-screen, cover-scaling camera preview
-    final previewSize = _cameraController!.value.previewSize;
-
-    if (previewSize == null) {
-      return Container(color: bg);
-    }
-
-    // The plugin reports landscape size; swap to match portrait if needed
-    final double previewWidth = previewSize.height;
-    final double previewHeight = previewSize.width;
-
-    return Container(
-      color: Colors.black,
-      child: FittedBox(
-        fit: BoxFit.cover,
-        child: SizedBox(
-          width: previewWidth,
-          height: previewHeight,
-          child: CameraPreview(_cameraController!),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildResultOverlay(ThemeData theme) {
-    final isDark = theme.brightness == Brightness.dark;
-    final mediaPadding = MediaQuery.of(context).padding;
-    
-    // Parse the output text to separate main text and reasoning
-    final text = _outputText ?? '';
-    final idx = text.indexOf('[');
-    final mainText = idx == -1 ? text.trim() : text.substring(0, idx).trim();
-    final reasoningText = idx != -1 && text.indexOf(']') > idx 
-        ? text.substring(idx + 1, text.indexOf(']')).trim()
-        : null;
-
-    return Positioned(
-      left: 16,
-      right: 16,
-      bottom: 96.0 + mediaPadding.bottom + 24, // sits above the navbar with padding
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
-          child: Container(
-            decoration: BoxDecoration(
-              color: isDark
-                  ? const Color(0xFF1E293B).withOpacity(0.98)
-                  : Colors.white.withOpacity(0.98),
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
-                  blurRadius: 20,
-                  offset: const Offset(0, 10),
-                ),
-              ],
-              border: Border.all(
-                color: theme.colorScheme.primary.withOpacity(0.2),
-                width: 1.5,
-              ),
-            ),
-            padding: const EdgeInsets.all(16),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(6),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.primary.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Icon(
-                        Icons.pets_rounded,
-                        size: 18,
-                        color: theme.colorScheme.primary,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        mainText,
-                        style: TextStyle(
-                          fontSize: 15,
-                          height: 1.35,
-                          color: theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 6),
-                    Container(
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.error.withOpacity(0.1),
-                        shape: BoxShape.circle,
-                      ),
-                  child: IconButton(
-                    onPressed: () {
-                      _resetCameraState();
-                    },
-                    icon: Icon(
-                      Icons.close_rounded,
-                      size: 16,
-                      color: theme.colorScheme.error,
-                    ),
-                    padding: const EdgeInsets.all(5),
-                    constraints: const BoxConstraints(),
-                  ),
-                ),
-              ],
-            ),
-                if ((reasoningText != null) || (_pickedImageBytes != null && _outputText != null)) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      if (reasoningText != null) ...[
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withOpacity(0.08),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.psychology_rounded,
-                                size: 14,
-                                color: theme.colorScheme.primary,
-                              ),
-                              const SizedBox(width: 6),
-                              Flexible(
-                                child: Text(
-                                  reasoningText!,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: theme.colorScheme.onSurface.withOpacity(0.7),
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                      if (reasoningText != null && _pickedImageBytes != null && _outputText != null)
-                        const SizedBox(width: 8),
-                      if (_pickedImageBytes != null && _outputText != null)
-                        Container(
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                theme.colorScheme.primary,
-                                theme.colorScheme.tertiary,
-                              ],
-                            ),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              onTap: () async {
-                                try {
-                                  await ShareService.shareInstagramStyle(
-                                    imageBytes: _pickedImageBytes!,
-                                    text: _outputText!,
-                                    context: context,
-                                  );
-                                } catch (e) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text('Error sharing: ${e.toString()}')),
-                                    );
-                                  }
-                                }
-                              },
-                              borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    const Icon(Icons.share_rounded, color: Colors.white, size: 16),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      'Share',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildLoadingOverlay() {
     final theme = Theme.of(context);

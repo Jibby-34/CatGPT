@@ -2,58 +2,38 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:camera/camera.dart';
 import 'package:image_picker/image_picker.dart';
+import '../services/share_service.dart';
 
 class CameraPage extends StatefulWidget {
   final Uint8List? pickedImageBytes;
   final String? outputText;
-  final Future<Uint8List?> Function() pickImage;
-  final Future<void> Function() evaluateImage;
   final Function(Uint8List) onImageCaptured;
+  final Future<void> Function() onSelectImage;
+  final VoidCallback onReset;
+  final Future<void> Function() evaluateImage;
 
   const CameraPage({
     super.key,
     required this.pickedImageBytes,
     required this.outputText,
-    required this.pickImage,
-    required this.evaluateImage,
     required this.onImageCaptured,
+    required this.onSelectImage,
+    required this.onReset,
+    required this.evaluateImage,
   });
 
   @override
-  State<CameraPage> createState() => _CameraPageState();
+  State<CameraPage> createState() => CameraPageState();
 }
 
-class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
-  bool _showReasoning = false;
-  final GlobalKey _storyKey = GlobalKey();
-  bool _hideResultOverlay = false;
-  final ImagePicker _picker = ImagePicker();
-  
+class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   // Camera related variables
   CameraController? _cameraController;
   List<CameraDescription>? _cameras;
   bool _isCameraInitialized = false;
   bool _isCameraPermissionGranted = false;
-
-  String get _mainText {
-    final text = widget.outputText ?? '';
-    final idx = text.indexOf('[');
-    if (idx == -1) return text.trim();
-    return text.substring(0, idx).trim();
-  }
-
-  String? get _reasoningText {
-    final text = widget.outputText ?? '';
-    final start = text.indexOf('[');
-    final end = text.indexOf(']');
-    if (start != -1 && end != -1 && end > start) {
-      return text.substring(start + 1, end).trim();
-    }
-    return null;
-  }
 
   @override
   void initState() {
@@ -67,16 +47,6 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     _cameraController?.dispose();
     super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(covariant CameraPage oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    // If a new output arrives, show the result overlay again
-    if (oldWidget.outputText != widget.outputText) {
-      _hideResultOverlay = false;
-      _showReasoning = false;
-    }
   }
 
   @override
@@ -123,7 +93,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _takePicture() async {
+  Future<void> takePicture() async {
     if (_cameraController == null || !_cameraController!.value.isInitialized) {
       return;
     }
@@ -132,7 +102,7 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       final XFile image = await _cameraController!.takePicture();
       final bytes = await image.readAsBytes();
       
-      // Set the captured image in the parent
+      // Notify parent of captured image
       widget.onImageCaptured(bytes);
       // Then evaluate the image
       await widget.evaluateImage();
@@ -141,136 +111,82 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _pickImageFromGallery() async {
-    try {
-      final pickedFile = await _picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1600,
-        imageQuality: 85,
-      );
-      if (pickedFile == null) return;
-      
-      Uint8List bytes;
-      if (kIsWeb) {
-        bytes = await pickedFile.readAsBytes();
-      } else {
-        final file = File(pickedFile.path);
-        bytes = await file.readAsBytes();
-      }
-      
-      // Set the picked image in the parent
-      widget.onImageCaptured(bytes);
-      // Then evaluate the image
-      await widget.evaluateImage();
-    } catch (e) {
-      debugPrint('Error picking image from gallery: $e');
-    }
-  }
-
+  bool get isCameraReady => _isCameraInitialized && _cameraController != null;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return LayoutBuilder(builder: (context, constraints) {
-      final isWide = constraints.maxWidth >= 800;
+    final isDark = theme.brightness == Brightness.dark;
+    final bg = isDark ? theme.colorScheme.surfaceVariant : Colors.black;
+    final mediaQuery = MediaQuery.of(context);
+    final statusBarHeight = mediaQuery.padding.top;
+    final appBarHeight = AppBar().preferredSize.height;
+    final topOffset = (statusBarHeight + appBarHeight) * 0.30;
 
-      return Stack(
-        fit: StackFit.expand,
-        children: [
-          // Hidden share canvas
-          Offstage(
-            offstage: true,
-            child: RepaintBoundary(
-              key: _storyKey,
-              child: _StoryCanvas(
-                imageBytes: widget.pickedImageBytes,
-                text: widget.outputText ?? '',
-              ),
-            ),
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        // Full-screen camera preview (starts just below AppBar, extends to bottom behind navbar)
+        Positioned(
+          top: topOffset,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          child: _buildMainCameraContent(theme, isDark, bg),
+        ),
+
+        // Result overlay when there's output text
+        if (widget.outputText != null) _buildResultOverlay(theme),
+      ],
+    );
+  }
+
+  Widget _buildMainCameraContent(ThemeData theme, bool isDark, Color bg) {
+    // If we have a captured image, show it scaled to match the live preview
+    if (widget.pickedImageBytes != null) {
+      // If the camera controller is initialized we can mimic the preview's
+      // cover-scaling by using the preview's reported dimensions.
+      final previewSize = _cameraController?.value.previewSize;
+      if (_cameraController != null && _cameraController!.value.isInitialized && previewSize != null) {
+        // The plugin reports landscape sizes, swap to portrait dims.
+        final double previewWidth = previewSize.height;
+        final double previewHeight = previewSize.width;
+
+        return ClipRRect(
+          borderRadius: const BorderRadius.only(
+            topLeft: Radius.circular(16),
+            topRight: Radius.circular(16),
           ),
-
-          // Full-screen camera (or states)
-          _buildFullScreenCamera(theme, constraints),
-
-          // Result overlay: shows main answer and a button to reveal reasoning
-          if (widget.outputText != null && !_hideResultOverlay)
-            _buildResultOverlay(theme, isWide),
-
-          // Top overlay: camera and upload buttons
-          if (!kIsWeb)
-            SafeArea(
-              child: Align(
-                alignment: Alignment.topRight,
-                child: Padding(
-                  padding: const EdgeInsets.all(12.0),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Image button (gallery)
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black.withOpacity(0.35),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.6),
-                            width: 2,
-                          ),
-                        ),
-                        child: IconButton(
-                          onPressed: _pickImageFromGallery,
-                          icon: const Icon(Icons.image_rounded, color: Colors.white, size: 24),
-                          tooltip: 'Select Image',
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Camera button
-                      Container(
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black.withOpacity(0.35),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.6),
-                            width: 2,
-                          ),
-                        ),
-                        child: IconButton(
-                          onPressed: _takePicture,
-                          icon: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 24),
-                          tooltip: 'Take Photo',
-                        ),
-                      ),
-                    ],
-                  ),
+          child: Container(
+            color: Colors.black,
+            child: FittedBox(
+              fit: BoxFit.cover,
+              child: SizedBox(
+                width: previewWidth,
+                height: previewHeight,
+                child: Image.memory(
+                  widget.pickedImageBytes!,
+                  fit: BoxFit.cover,
                 ),
               ),
             ),
+          ),
+        );
+      }
 
-          if (_showReasoning && _reasoningText != null) _buildReasoningPopup(theme, isWide),
-        ],
-      );
-    });
-  }
-
-  Widget _buildFullScreenCamera(ThemeData theme, [BoxConstraints? constraints]) {
-    final isDark = theme.brightness == Brightness.dark;
-    final bg = isDark ? theme.colorScheme.surfaceVariant : Colors.black;
-    
-    // If we have a captured/picked image, show it with proper aspect ratio
-    if (widget.pickedImageBytes != null) {
-      return Container(
-        color: bg,
-        width: double.infinity,
-        height: double.infinity,
-        child: Center(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return Image.memory(
-                widget.pickedImageBytes!,
-                fit: BoxFit.contain,
-                width: constraints.maxWidth,
-                height: constraints.maxHeight,
-              );
-            },
+      // Fallback: contain the image if we can't determine preview size.
+      return ClipRRect(
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(16),
+          topRight: Radius.circular(16),
+        ),
+        child: Container(
+          color: bg,
+          child: Image.memory(
+            widget.pickedImageBytes!,
+            fit: BoxFit.contain,
+            width: double.infinity,
+            height: double.infinity,
           ),
         ),
       );
@@ -281,23 +197,74 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       return Container(
         color: bg,
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.camera_alt_outlined, size: 64, color: Colors.white54),
-              const SizedBox(height: 16),
-              const Text('Camera preview not available on web', style: TextStyle(color: Colors.white70)),
-              const SizedBox(height: 12),
-              ElevatedButton.icon(
-                onPressed: () async {
-                  final bytes = await widget.pickImage();
-                  if (bytes == null) return;
-                  await widget.evaluateImage();
-                },
-                icon: const Icon(Icons.upload_file_outlined),
-                label: const Text('Upload Image'),
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF1E293B).withOpacity(0.8)
+                  : Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: isDark
+                    ? Colors.white.withOpacity(0.1)
+                    : Colors.black.withOpacity(0.05),
+                width: 1,
               ),
-            ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.15),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.camera_alt_outlined,
+                    size: 48,
+                    color: theme.colorScheme.primary,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Camera preview not available on web',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        theme.colorScheme.primary,
+                        theme.colorScheme.tertiary,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: widget.onSelectImage,
+                    icon: const Icon(Icons.upload_file_rounded, color: Colors.white),
+                    label: const Text(
+                      'Upload Image',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
@@ -307,8 +274,35 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     if (!_isCameraPermissionGranted) {
       return Container(
         color: bg,
-        child: const Center(
-          child: Text('Camera permission required', style: TextStyle(color: Colors.white70)),
+        child: Center(
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF1E293B).withOpacity(0.8)
+                  : Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.camera_alt_outlined,
+                  size: 48,
+                  color: theme.colorScheme.error,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Camera permission required',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ),
       );
     }
@@ -317,213 +311,250 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       return Container(
         color: bg,
         child: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              CircularProgressIndicator(color: theme.colorScheme.primary),
-              const SizedBox(height: 16),
-              const Text('Initializing camera...', style: TextStyle(color: Colors.white70)),
-            ],
+          child: Container(
+            padding: const EdgeInsets.all(32),
+            decoration: BoxDecoration(
+              color: isDark
+                  ? const Color(0xFF1E293B).withOpacity(0.8)
+                  : Colors.white.withOpacity(0.9),
+              borderRadius: BorderRadius.circular(24),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(
+                  color: theme.colorScheme.primary,
+                  strokeWidth: 3,
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Initializing camera...',
+                  style: TextStyle(
+                    color: theme.colorScheme.onSurface,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
-    // Camera preview with proper aspect ratio handling
+    // Full-screen, cover-scaling camera preview that fills available space
     final previewSize = _cameraController!.value.previewSize;
-    
+
     if (previewSize == null) {
       return Container(color: bg);
     }
 
-    // Calculate aspect ratio - preview size is in camera's native orientation
-    // For portrait display, we need the aspect ratio that fits the screen
-    return Container(
-      color: Colors.black,
-      width: double.infinity,
-      height: double.infinity,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          // Calculate the aspect ratio of the preview
-          // Preview size is typically landscape (width > height)
-          // For portrait display, we want height/width
-          final double previewAspectRatio = previewSize.height / previewSize.width;
-          final double screenAspectRatio = constraints.maxHeight / constraints.maxWidth;
-          
-          // Determine the size that fits within the constraints while maintaining aspect ratio
-          double width, height;
-          if (previewAspectRatio > screenAspectRatio) {
-            // Preview is taller relative to screen - fit to height
-            height = constraints.maxHeight;
-            width = height / previewAspectRatio;
-          } else {
-            // Preview is wider relative to screen - fit to width
-            width = constraints.maxWidth;
-            height = width * previewAspectRatio;
-          }
-          
-          return Center(
-            child: SizedBox(
-              width: width,
-              height: height,
-              child: CameraPreview(_cameraController!),
-            ),
-          );
-        },
-      ),
-    );
-  }
+    // The plugin reports landscape size; swap to match portrait if needed
+    final double cameraPreviewWidth = previewSize.height;
+    final double cameraPreviewHeight = previewSize.width;
 
-  Widget _buildResultOverlay(ThemeData theme, bool isWide) {
-    final isDark = theme.brightness == Brightness.dark;
-    return Positioned(
-      left: 14,
-      right: 14,
-      bottom: 72, // sits just above the capture button
-      child: Center(
-        child: ConstrainedBox(
-          constraints: BoxConstraints(maxWidth: isWide ? 520 : 520),
-          child: Container(
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withOpacity(0.95),
-              borderRadius: BorderRadius.circular(14),
-              boxShadow: [
-                BoxShadow(
-                  color: theme.shadowColor.withOpacity(0.2),
-                  blurRadius: 12,
-                  offset: const Offset(0, 8),
-                ),
-              ],
-              border: Border.all(
-                color: theme.colorScheme.primary.withOpacity(isDark ? 0.22 : 0.14),
-                width: 1,
-              ),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.pets, size: 20, color: theme.colorScheme.onSurface),
-                const SizedBox(width: 10),
-                Flexible(
-                  fit: FlexFit.loose,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _mainText,
-                        style: TextStyle(
-                          fontSize: isWide ? 16 : 15,
-                          height: 1.3,
-                          color: theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      if (_reasoningText != null) ...[
-                        const SizedBox(height: 6),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: () {
-                              setState(() { _showReasoning = true; });
-                            },
-                            icon: const Icon(Icons.visibility_outlined, size: 18),
-                            label: const Text('Show reasoning'),
-                            style: TextButton.styleFrom(
-                              foregroundColor: theme.colorScheme.primary,
-                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                              minimumSize: const Size(0, 0),
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 6),
-                InkWell(
-                  onTap: () {
-                    setState(() {
-                      _hideResultOverlay = true;
-                      _showReasoning = false;
-                    });
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: Icon(
-                      Icons.close,
-                      size: 18,
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+    return ClipRRect(
+      borderRadius: const BorderRadius.only(
+        topLeft: Radius.circular(16),
+        topRight: Radius.circular(16),
+      ),
+      child: Container(
+        color: Colors.black,
+        child: FittedBox(
+          fit: BoxFit.cover,
+          child: SizedBox(
+            width: cameraPreviewWidth,
+            height: cameraPreviewHeight,
+            child: CameraPreview(_cameraController!),
           ),
         ),
       ),
     );
   }
 
-
-  Widget _buildReasoningPopup(ThemeData theme, bool isWide) {
+  Widget _buildResultOverlay(ThemeData theme) {
     final isDark = theme.brightness == Brightness.dark;
-    return Align(
-      alignment: Alignment.bottomCenter,
-      child: Padding(
-        padding: const EdgeInsets.only(bottom: 84.0), // centered just above result box
-        child: Material(
-          elevation: 12,
-          color: Colors.transparent,
+    final mediaPadding = MediaQuery.of(context).padding;
+    
+    // Parse the output text to separate main text and reasoning
+    final text = widget.outputText ?? '';
+    final idx = text.indexOf('[');
+    final mainText = idx == -1 ? text.trim() : text.substring(0, idx).trim();
+    final reasoningText = idx != -1 && text.indexOf(']') > idx 
+        ? text.substring(idx + 1, text.indexOf(']')).trim()
+        : null;
+
+    // Move translation box lower when an image has been captured
+    final bottomPosition = widget.pickedImageBytes != null 
+        ? 24.0 + mediaPadding.bottom  // Lower position after photo is taken
+        : 96.0 + mediaPadding.bottom + 24; // Original position above navbar
+
+    return Positioned(
+      left: 16,
+      right: 16,
+      bottom: bottomPosition,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
           child: Container(
-            constraints: BoxConstraints(maxWidth: isWide ? 420 : 320),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surface.withOpacity(isDark ? 0.98 : 0.98),
-              borderRadius: BorderRadius.circular(12),
+              color: isDark
+                  ? const Color(0xFF1E293B).withOpacity(0.98)
+                  : Colors.white.withOpacity(0.98),
+              borderRadius: BorderRadius.circular(20),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(isDark ? 0.35 : 0.18),
-                  blurRadius: 16,
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 20,
                   offset: const Offset(0, 10),
                 ),
               ],
               border: Border.all(
-                color: theme.colorScheme.primary.withOpacity(isDark ? 0.26 : 0.16),
+                color: theme.colorScheme.primary.withOpacity(0.2),
+                width: 1.5,
               ),
             ),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.lightbulb_outline, color: theme.colorScheme.primary),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    _reasoningText!,
-                    style: TextStyle(
-                      fontSize: isWide ? 15 : 14,
-                      height: 1.35,
-                      color: theme.colorScheme.onSurface,
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.primary.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(
+                        Icons.pets_rounded,
+                        size: 18,
+                        color: theme.colorScheme.primary,
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                InkWell(
-                  onTap: () {
-                    setState(() { _showReasoning = false; });
-                  },
-                  child: Padding(
-                    padding: const EdgeInsets.all(4.0),
-                    child: Icon(
-                      Icons.close,
-                      size: 18,
-                      color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        mainText,
+                        style: TextStyle(
+                          fontSize: 15,
+                          height: 1.35,
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
                     ),
-                  ),
+                    const SizedBox(width: 6),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.error.withOpacity(0.1),
+                        shape: BoxShape.circle,
+                      ),
+                      child: IconButton(
+                        onPressed: widget.onReset,
+                        icon: Icon(
+                          Icons.close_rounded,
+                          size: 16,
+                          color: theme.colorScheme.error,
+                        ),
+                        padding: const EdgeInsets.all(5),
+                        constraints: const BoxConstraints(),
+                      ),
+                    ),
+                  ],
                 ),
+                if ((reasoningText != null) || (widget.pickedImageBytes != null && widget.outputText != null)) ...[
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      if (reasoningText != null) ...[
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.psychology_rounded,
+                                size: 14,
+                                color: theme.colorScheme.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Flexible(
+                                child: Text(
+                                  reasoningText!,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      if (reasoningText != null && widget.pickedImageBytes != null && widget.outputText != null)
+                        const SizedBox(width: 8),
+                      if (widget.pickedImageBytes != null && widget.outputText != null)
+                        Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                theme.colorScheme.primary,
+                                theme.colorScheme.tertiary,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              onTap: () async {
+                                try {
+                                  await ShareService.shareInstagramStyle(
+                                    imageBytes: widget.pickedImageBytes!,
+                                    text: widget.outputText!,
+                                    context: context,
+                                  );
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text('Error sharing: ${e.toString()}')),
+                                    );
+                                  }
+                                }
+                              },
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    const Icon(Icons.share_rounded, color: Colors.white, size: 16),
+                                    const SizedBox(width: 4),
+                                    const Text(
+                                      'Share',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.w600,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -531,94 +562,5 @@ class _CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       ),
     );
   }
-
-
 }
 
-class _StoryCanvas extends StatelessWidget {
-  final Uint8List? imageBytes;
-  final String text;
-
-  const _StoryCanvas({
-    required this.imageBytes,
-    required this.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 1080,
-      height: 1920,
-      child: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            colors: [Color(0xFF0F2027), Color(0xFF203A43), Color(0xFF2C5364)],
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-          ),
-        ),
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (imageBytes != null)
-              Opacity(
-                opacity: 0.45,
-                child: Image.memory(imageBytes!, fit: BoxFit.cover),
-              ),
-            Container(color: Colors.black.withOpacity(0.25)),
-            Padding(
-              padding: const EdgeInsets.all(64),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: const [
-                      Icon(Icons.pets, color: Colors.white, size: 56),
-                      SizedBox(width: 16),
-                      Text(
-                        'CatGPT',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 54,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Spacer(),
-                  Container(
-                    padding: const EdgeInsets.all(28),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.92),
-                      borderRadius: BorderRadius.circular(28),
-                    ),
-                    child: Text(
-                      text,
-                      style: const TextStyle(
-                        fontSize: 44,
-                        height: 1.25,
-                        color: Colors.black,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Row(
-                    children: const [
-                      Icon(Icons.camera_alt_rounded, color: Colors.white70),
-                      SizedBox(width: 8),
-                      Text('Translated with CatGPT',
-                          style:
-                              TextStyle(color: Colors.white70, fontSize: 26)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
