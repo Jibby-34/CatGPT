@@ -12,7 +12,7 @@ class CameraPage extends StatefulWidget {
   final Function(Uint8List) onImageCaptured;
   final Future<void> Function() onSelectImage;
   final VoidCallback onReset;
-  final Future<void> Function() evaluateImage;
+  final Future<void> Function(Uint8List) evaluateImage;
 
   const CameraPage({
     super.key,
@@ -103,9 +103,8 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       final bytes = await image.readAsBytes();
       
       // Notify parent of captured image
+      // The parent will handle showing ad prompt if needed and then evaluating the image
       widget.onImageCaptured(bytes);
-      // Then evaluate the image
-      await widget.evaluateImage();
     } catch (e) {
       debugPrint('Error taking picture: $e');
     }

@@ -344,13 +344,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final file = File(pickedFile.path);
         bytes = await file.readAsBytes();
       }
-      if (mounted) {
-        setState(() {
-          _pickedImageBytes = bytes;
-          // Clear any previous text so other tabs don't show stale content
-          _outputText = null;
-        });
-      }
+      // Don't set state here - let the calling function handle it
       return bytes;
     } catch (e) {
       debugPrint('pickImage error: $e');
@@ -373,13 +367,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         final file = File(pickedFile.path);
         bytes = await file.readAsBytes();
       }
-      if (mounted) {
-        setState(() {
-          _pickedImageBytes = bytes;
-          // Clear any previous text so other tabs don't show stale content
-          _outputText = null;
-        });
-      }
+      // Don't set state here - let the calling function handle it
       return bytes;
     } catch (e) {
       debugPrint('pickImageFromGallery error: $e');
@@ -413,7 +401,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       await _showRewardedAdIfAvailable();
     }
     
-    await evaluateImage();
+    await evaluateImage(bytes);
   }
 
   Future<void> _onTakePhoto() async {
@@ -461,7 +449,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       await _saveNoCatCount();
       await _showRewardedAdIfAvailable();
     }
-    await evaluateImage();
+    await evaluateImage(bytes);
   }
 
   Future<bool> _showNoCatAdPrompt() async {
@@ -552,14 +540,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
 
-  Future<void> evaluateImage() async {
-    if (_pickedImageBytes == null) return;
+  Future<void> evaluateImage(Uint8List imageBytes) async {
+    // Prevent duplicate calls - if already loading, return early
+    if (_isLoading) return;
     setState(() => _isLoading = true);
 
     try {
       final url = Uri.parse('https://my-proxy-server.image-proxy-gateway.workers.dev/');
       final headers = {'Content-Type': 'application/json'};
-      final base64Image = base64Encode(_pickedImageBytes!);
+      final base64Image = base64Encode(imageBytes);
 
       final body = jsonEncode({
         "imageBase64": base64Image,
@@ -584,10 +573,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           _consecutiveNoCatCount = 0;
           await _saveNoCatCount();
           
-          await _addHistoryEntry(text: text, imageBytes: _pickedImageBytes);
+          await _addHistoryEntry(text: text, imageBytes: imageBytes);
 
           // Show ad on every other translation, starting with the second (no ad on first)
-          if (!_adsRemoved && translationHistory.length > 1 && translationHistory.length % 2 == 1) {
+          // After adding entry, length is 1, 2, 3, 4... We want ads on 2nd, 4th, 6th (even numbers)
+          if (!_adsRemoved && translationHistory.length > 1 && translationHistory.length % 2 == 0) {
             await _showRewardedAdIfAvailable();
           }
         } else {
@@ -841,7 +831,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         onImageCaptured: _handleImageCaptured,
         onSelectImage: _onSelectImageAndTranslate,
         onReset: _resetCameraState,
-        evaluateImage: evaluateImage,
+        evaluateImage: (bytes) => evaluateImage(bytes),
       );
     } else {
       // Other tabs: render as before
