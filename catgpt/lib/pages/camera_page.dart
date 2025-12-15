@@ -165,7 +165,7 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                 height: previewHeight,
                 child: Image.memory(
                   widget.pickedImageBytes!,
-                  fit: BoxFit.cover,
+                  fit: BoxFit.contain,
                 ),
               ),
             ),
