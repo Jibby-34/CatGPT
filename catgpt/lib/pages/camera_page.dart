@@ -413,7 +413,7 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                 width: 1.5,
               ),
             ),
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,7 +437,7 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                       child: Text(
                         mainText,
                         style: TextStyle(
-                          fontSize: 15,
+                          fontSize: 16,
                           height: 1.35,
                           color: theme.colorScheme.onSurface,
                           fontWeight: FontWeight.w600,
@@ -469,7 +469,7 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                     children: [
                       if (reasoningText != null) ...[
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.primary.withOpacity(0.08),
                             borderRadius: BorderRadius.circular(8),
@@ -479,7 +479,7 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                             children: [
                               Icon(
                                 Icons.psychology_rounded,
-                                size: 14,
+                                size: 16,
                                 color: theme.colorScheme.primary,
                               ),
                               const SizedBox(width: 6),
@@ -487,7 +487,7 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                                 child: Text(
                                   reasoningText!,
                                   style: TextStyle(
-                                    fontSize: 12,
+                                    fontSize: 13,
                                     color: theme.colorScheme.onSurface.withOpacity(0.7),
                                   ),
                                   maxLines: 1,
@@ -531,18 +531,18 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                               },
                               borderRadius: BorderRadius.circular(8),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                                 child: Row(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    const Icon(Icons.share_rounded, color: Colors.white, size: 16),
-                                    const SizedBox(width: 4),
+                                    const Icon(Icons.share_rounded, color: Colors.white, size: 18),
+                                    const SizedBox(width: 5),
                                     const Text(
                                       'Share',
                                       style: TextStyle(
                                         color: Colors.white,
                                         fontWeight: FontWeight.w600,
-                                        fontSize: 12,
+                                        fontSize: 13,
                                       ),
                                     ),
                                   ],

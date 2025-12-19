@@ -360,11 +360,31 @@ class ShareService {
   }
 
   /// Shares the image file using share_plus
-  static Future<void> shareImage(String filePath, {String? subject}) async {
+  static Future<void> shareImage(
+    String filePath, {
+    String? subject,
+    BuildContext? context,
+  }) async {
     try {
-      await Share.shareFiles(
-        [filePath],
+      // On iOS, we need to provide sharePositionOrigin for the popover
+      Rect? sharePositionOrigin;
+      if (Platform.isIOS && context != null && context.mounted) {
+        final mediaQuery = MediaQuery.of(context);
+        final screenSize = mediaQuery.size;
+        // Position the share popover at the center-bottom of the screen
+        // This is a safe default that works on both iPhone and iPad
+        sharePositionOrigin = Rect.fromLTWH(
+          screenSize.width / 2 - 50, // Center horizontally with 100px width
+          screenSize.height - 100, // Near bottom of screen
+          100, // Width
+          50, // Height
+        );
+      }
+
+      await Share.shareXFiles(
+        [XFile(filePath)],
         subject: subject ?? 'CatGPT Translation',
+        sharePositionOrigin: sharePositionOrigin,
       );
     } catch (e) {
       debugPrint('Error sharing image: $e');
@@ -386,7 +406,11 @@ class ShareService {
       );
 
       if (filePath != null) {
-        await shareImage(filePath);
+        // Check if context is still mounted before using it
+        await shareImage(
+          filePath,
+          context: context.mounted ? context : null,
+        );
       } else {
         throw Exception('Failed to create shareable image');
       }
