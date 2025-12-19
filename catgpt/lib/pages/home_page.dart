@@ -573,9 +573,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           
           await _addHistoryEntry(text: text, imageBytes: imageBytes);
 
-          // Show ad on every other translation, starting with the second (no ad on first)
-          // After adding entry, length is 1, 2, 3, 4... We want ads on 2nd, 4th, 6th (even numbers)
-          if (!_adsRemoved && translationHistory.length > 1 && translationHistory.length % 2 == 0) {
+          // Show ad on every third translation, starting with the third (no ad on first two)
+          // After adding entry, length is 1, 2, 3, 4, 5, 6... We want ads on 3rd, 6th, 9th (multiples of 3)
+          if (!_adsRemoved && translationHistory.length > 1 && translationHistory.length % 3 == 0) {
             await _showRewardedAdIfAvailable();
           }
         } else {
