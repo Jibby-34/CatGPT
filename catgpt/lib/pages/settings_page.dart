@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-// import 'package:in_app_purchase/in_app_purchase.dart';
+import 'package:in_app_purchase/in_app_purchase.dart';
 import 'tutorial_page.dart';
-// import '../constants/purchase_constants.dart';
+import '../constants/purchase_constants.dart';
 
 class SettingsPage extends StatefulWidget {
   final bool isDarkMode;
@@ -29,140 +31,186 @@ class SettingsPage extends StatefulWidget {
 class _SettingsPageState extends State<SettingsPage> {
   late bool _isDarkMode;
   late bool _adsRemoved;
-  // final InAppPurchase _inAppPurchase = InAppPurchase.instance;
-  // StreamSubscription<List<PurchaseDetails>>? _subscription;
-  // ProductDetails? _noAdsProduct;
-  // bool _isStoreAvailable = false;
-  // bool _isLoadingProducts = false;
-  // bool _purchasePending = false;
-  // String? _purchaseError;
+  final InAppPurchase _inAppPurchase = InAppPurchase.instance;
+  StreamSubscription<List<PurchaseDetails>>? _subscription;
+  ProductDetails? _noAdsProduct;
+  bool _isStoreAvailable = false;
+  bool _isLoadingProducts = false;
+  bool _purchasePending = false;
+  String? _purchaseError;
 
   @override
   void initState() {
     super.initState();
     _isDarkMode = widget.isDarkMode;
     _adsRemoved = widget.adsRemoved;
-    // _subscription = _inAppPurchase.purchaseStream.listen(
-    //   _onPurchaseUpdated,
-    //   onError: _handlePurchaseError,
-    // );
-    // _initStoreInfo();
+    _subscription = _inAppPurchase.purchaseStream.listen(
+      _onPurchaseUpdated,
+      onError: _handlePurchaseError,
+    );
+    _initStoreInfo();
+  }
+
+  @override
+  void didUpdateWidget(SettingsPage oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.adsRemoved != widget.adsRemoved) {
+      setState(() {
+        _adsRemoved = widget.adsRemoved;
+      });
+    }
+    if (oldWidget.isDarkMode != widget.isDarkMode) {
+      setState(() {
+        _isDarkMode = widget.isDarkMode;
+      });
+    }
   }
 
   @override
   void dispose() {
-    // _subscription?.cancel();
+    _subscription?.cancel();
     super.dispose();
   }
 
-  // void _handlePurchaseError(Object error) {
-  //   if (!mounted) return;
-  //   setState(() {
-  //     _purchaseError = error.toString();
-  //     _purchasePending = false;
-  //   });
-  // }
+  void _handlePurchaseError(Object error) {
+    if (!mounted) return;
+    setState(() {
+      _purchaseError = error.toString();
+      _purchasePending = false;
+    });
+  }
 
-  // Future<void> _initStoreInfo() async {
-  //   setState(() {
-  //     _isLoadingProducts = true;
-  //     _purchaseError = null;
-  //   });
+  Future<void> _initStoreInfo() async {
+    setState(() {
+      _isLoadingProducts = true;
+      _purchaseError = null;
+    });
 
-  //   final available = await _inAppPurchase.isAvailable();
-  //   if (!mounted) return;
-  //   setState(() {
-  //     _isStoreAvailable = available;
-  //   });
-  //   if (!available) {
-  //     setState(() => _isLoadingProducts = false);
-  //     return;
-  //   }
+    try {
+      final available = await _inAppPurchase.isAvailable();
+      final platformName = Platform.isIOS ? 'App Store' : 'Google Play';
+      debugPrint('$platformName store available: $available');
+      
+      if (!mounted) return;
+      setState(() {
+        _isStoreAvailable = available;
+      });
+      
+      if (!available) {
+        debugPrint('Store not available - ${Platform.isIOS ? "check internet connection and App Store account" : "app may need to be uploaded to Google Play Console"}');
+        setState(() {
+          _purchaseError = Platform.isIOS
+              ? 'App Store not available. Please check your internet connection and try again.'
+              : 'Billing not available. Please ensure the app is uploaded to Google Play Console.';
+          _isLoadingProducts = false;
+        });
+        return;
+      }
 
-  //   final response = await _inAppPurchase.queryProductDetails({noAdsProductId});
-  //   if (!mounted) return;
-  //   setState(() {
-  //     _noAdsProduct = response.productDetails.isNotEmpty
-  //         ? response.productDetails.first
-  //         : null;
-  //     _purchaseError = response.error?.message;
-  //     _isLoadingProducts = false;
-  //   });
-  // }
+      debugPrint('Querying product: $noAdsProductId');
+      final response = await _inAppPurchase.queryProductDetails({noAdsProductId});
+      debugPrint('Product query result: ${response.productDetails.length} products found');
+      if (response.error != null) {
+        debugPrint('Product query error: ${response.error?.message}');
+      }
+      
+      if (!mounted) return;
+      setState(() {
+        _noAdsProduct = response.productDetails.isNotEmpty
+            ? response.productDetails.first
+            : null;
+        if (response.error != null) {
+          _purchaseError = response.error?.message ?? 'Failed to load product details';
+        } else if (response.productDetails.isEmpty) {
+          _purchaseError = Platform.isIOS
+              ? 'Product not found. Ensure the product is created in App Store Connect and associated with this build.'
+              : 'Product not found. Ensure the product is created in Google Play Console.';
+        }
+        _isLoadingProducts = false;
+      });
+    } catch (e) {
+      debugPrint('Error initializing store info: $e');
+      if (!mounted) return;
+      setState(() {
+        _purchaseError = 'Error connecting to store: $e';
+        _isLoadingProducts = false;
+      });
+    }
+  }
 
-  // Future<void> _markNoAdsPurchased() async {
-  //   final prefs = await SharedPreferences.getInstance();
-  //   await prefs.setBool(noAdsPrefsKey, true);
-  //   if (!mounted) return;
-  //   setState(() {
-  //     _adsRemoved = true;
-  //     _purchasePending = false;
-  //   });
-  //   widget.onAdsStatusChanged(true);
-  //   ScaffoldMessenger.of(context).showSnackBar(
-  //     const SnackBar(
-  //       content: Text('Ads removed. Thank you!'),
-  //       duration: Duration(seconds: 2),
-  //     ),
-  //   );
-  // }
+  Future<void> _markNoAdsPurchased() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(noAdsPrefsKey, true);
+    if (!mounted) return;
+    setState(() {
+      _adsRemoved = true;
+      _purchasePending = false;
+    });
+    widget.onAdsStatusChanged(true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Ads removed. Thank you!'),
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
 
-  // void _onPurchaseUpdated(List<PurchaseDetails> purchases) {
-  //   for (final purchase in purchases) {
-  //     if (purchase.productID != noAdsProductId) continue;
+  void _onPurchaseUpdated(List<PurchaseDetails> purchases) {
+    for (final purchase in purchases) {
+      if (purchase.productID != noAdsProductId) continue;
 
-  //     switch (purchase.status) {
-  //       case PurchaseStatus.purchased:
-  //       case PurchaseStatus.restored:
-  //         _markNoAdsPurchased();
-  //         break;
-  //       case PurchaseStatus.pending:
-  //         setState(() => _purchasePending = true);
-  //         break;
-  //       case PurchaseStatus.canceled:
-  //         setState(() {
-  //           _purchasePending = false;
-  //           _purchaseError = 'Purchase canceled';
-  //         });
-  //         break;
-  //       case PurchaseStatus.error:
-  //         setState(() {
-  //           _purchasePending = false;
-  //           _purchaseError = purchase.error?.message ?? 'Purchase failed';
-  //         });
-  //         break;
-  //       default:
-  //         break;
-  //     }
+      switch (purchase.status) {
+        case PurchaseStatus.purchased:
+        case PurchaseStatus.restored:
+          _markNoAdsPurchased();
+          break;
+        case PurchaseStatus.pending:
+          setState(() => _purchasePending = true);
+          break;
+        case PurchaseStatus.canceled:
+          setState(() {
+            _purchasePending = false;
+            _purchaseError = 'Purchase canceled';
+          });
+          break;
+        case PurchaseStatus.error:
+          setState(() {
+            _purchasePending = false;
+            _purchaseError = purchase.error?.message ?? 'Purchase failed';
+          });
+          break;
+        default:
+          break;
+      }
 
-  //     if (purchase.pendingCompletePurchase) {
-  //       _inAppPurchase.completePurchase(purchase);
-  //     }
-  //   }
-  // }
+      if (purchase.pendingCompletePurchase) {
+        _inAppPurchase.completePurchase(purchase);
+      }
+    }
+  }
 
-  // Future<void> _buyNoAds() async {
-  //   if (_adsRemoved) return;
-  //   final product = _noAdsProduct;
-  //   if (product == null) {
-  //     setState(() => _purchaseError = 'No Ads product unavailable');
-  //     return;
-  //   }
-  //   setState(() {
-  //     _purchasePending = true;
-  //     _purchaseError = null;
-  //   });
-  //   final purchaseParam = PurchaseParam(productDetails: product);
-  //   await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
-  // }
+  Future<void> _buyNoAds() async {
+    if (_adsRemoved) return;
+    final product = _noAdsProduct;
+    if (product == null) {
+      setState(() => _purchaseError = 'No Ads product unavailable');
+      return;
+    }
+    setState(() {
+      _purchasePending = true;
+      _purchaseError = null;
+    });
+    final purchaseParam = PurchaseParam(productDetails: product);
+    await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+  }
 
-  // Future<void> _restorePurchases() async {
-  //   setState(() {
-  //     _purchasePending = true;
-  //     _purchaseError = null;
-  //   });
-  //   await _inAppPurchase.restorePurchases();
-  // }
+  Future<void> _restorePurchases() async {
+    setState(() {
+      _purchasePending = true;
+      _purchaseError = null;
+    });
+    await _inAppPurchase.restorePurchases();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -252,6 +300,214 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
             ),
             const SizedBox(height: 32),
+            // Premium Section
+            if (!_adsRemoved) ...[
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 12),
+                child: Text(
+                  'Premium',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [
+                      theme.colorScheme.primary.withOpacity(0.1),
+                      theme.colorScheme.tertiary.withOpacity(0.1),
+                    ],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withOpacity(0.3),
+                    width: 1.5,
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withOpacity(0.1),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Icon(
+                              Icons.workspace_premium_rounded,
+                              color: theme.colorScheme.primary,
+                              size: 24,
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Remove Ads',
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                    color: theme.colorScheme.onSurface,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  _noAdsProduct != null
+                                      ? _noAdsProduct!.price
+                                      : noAdsFallbackPrice,
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                    color: theme.colorScheme.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Text(
+                        'Remove all ads and disable the "Watch ad to translate" popup',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface.withOpacity(0.7),
+                          height: 1.5,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      if (_purchaseError != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.error.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.error_outline_rounded,
+                                color: theme.colorScheme.error,
+                                size: 20,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _purchaseError!,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: theme.colorScheme.error,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                      ],
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _isStoreAvailable && !_purchasePending
+                                  ? _restorePurchases
+                                  : null,
+                              icon: Icon(
+                                Icons.restore_rounded,
+                                size: 18,
+                              ),
+                              label: const Text('Restore'),
+                              style: OutlinedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            flex: 2,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [
+                                    theme.colorScheme.primary,
+                                    theme.colorScheme.tertiary,
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: ElevatedButton(
+                                onPressed: (_isStoreAvailable &&
+                                        !_purchasePending &&
+                                        _noAdsProduct != null)
+                                    ? _buyNoAds
+                                    : null,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.transparent,
+                                  shadowColor: Colors.transparent,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 12),
+                                ),
+                                child: _isLoadingProducts
+                                    ? SizedBox(
+                                        height: 20,
+                                        width: 20,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                          valueColor: AlwaysStoppedAnimation<Color>(
+                                            Colors.white,
+                                          ),
+                                        ),
+                                      )
+                                    : _purchasePending
+                                        ? Row(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              SizedBox(
+                                                height: 16,
+                                                width: 16,
+                                                child: CircularProgressIndicator(
+                                                  strokeWidth: 2,
+                                                  valueColor:
+                                                      AlwaysStoppedAnimation<Color>(
+                                                    Colors.white,
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              const Text('Processing...'),
+                                            ],
+                                          )
+                                        : const Text(
+                                            'Purchase',
+                                            style: TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+            ],
             // Data Section
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 12),
