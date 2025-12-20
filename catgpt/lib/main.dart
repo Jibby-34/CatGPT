@@ -18,7 +18,7 @@ Future<void> main() async {
 
   // Load saved theme mode before app starts
   final prefs = await SharedPreferences.getInstance();
-  final isDarkMode = prefs.getBool('isDarkMode') ?? false;
+  final isDarkMode = prefs.getBool('isDarkMode') ?? true;
 
   runApp(CatTranslatorApp(isDarkMode: isDarkMode));
 }
