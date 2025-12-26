@@ -34,6 +34,12 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   List<CameraDescription>? _cameras;
   bool _isCameraInitialized = false;
   bool _isCameraPermissionGranted = false;
+  int _currentCameraIndex = 0;
+  
+  // Zoom related variables
+  double _baseZoomLevel = 1.0;
+  double _currentZoomLevel = 1.0; // Track current zoom level ourselves
+  double _currentScale = 1.0;
 
   @override
   void initState() {
@@ -62,15 +68,23 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _initializeCamera() async {
+  Future<void> _initializeCamera({int? cameraIndex}) async {
     if (kIsWeb) return; // Camera preview not supported on web
     
     try {
-      _cameras = await availableCameras();
+      if (_cameras == null) {
+        _cameras = await availableCameras();
+      }
       if (_cameras!.isEmpty) return;
 
+      final index = cameraIndex ?? _currentCameraIndex;
+      if (index >= _cameras!.length) return;
+
+      // Dispose previous controller if it exists
+      await _cameraController?.dispose();
+
       _cameraController = CameraController(
-        _cameras![0],
+        _cameras![index],
         ResolutionPreset.high,
         enableAudio: false,
       );
@@ -78,7 +92,16 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
       await _cameraController!.initialize();
       
       if (mounted) {
+        // Initialize zoom level to default and reset camera zoom
+        _baseZoomLevel = 1.0;
+        _currentZoomLevel = 1.0;
+        try {
+          await _cameraController!.setZoomLevel(1.0);
+        } catch (e) {
+          // Ignore if zoom setting fails
+        }
         setState(() {
+          _currentCameraIndex = index;
           _isCameraInitialized = true;
           _isCameraPermissionGranted = true;
         });
@@ -91,6 +114,14 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         });
       }
     }
+  }
+
+  Future<void> switchCamera() async {
+    if (_cameras == null || _cameras!.length < 2) return;
+    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+
+    final newIndex = (_currentCameraIndex + 1) % _cameras!.length;
+    await _initializeCamera(cameraIndex: newIndex);
   }
 
   Future<void> takePicture() async {
@@ -111,6 +142,49 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   }
 
   bool get isCameraReady => _isCameraInitialized && _cameraController != null;
+
+  Future<void> _onScaleStart(ScaleStartDetails details) async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
+    // Use the current zoom level we've been tracking
+    _baseZoomLevel = _currentZoomLevel;
+    _currentScale = 1.0;
+  }
+
+  void _onScaleUpdate(ScaleUpdateDetails details) async {
+    if (_cameraController == null || !_cameraController!.value.isInitialized) {
+      return;
+    }
+
+    // Calculate new zoom level based on scale
+    _currentScale = details.scale;
+    final newZoomLevel = _baseZoomLevel * _currentScale;
+
+    // Use reasonable default zoom limits (most cameras support 1.0 to 8.0 or higher)
+    const double minZoom = 1.0;
+    const double maxZoom = 8.0;
+
+    // Clamp zoom level to valid range
+    final clampedZoom = newZoomLevel.clamp(minZoom, maxZoom);
+
+    // Apply zoom to camera and update our tracked zoom level
+    try {
+      await _cameraController!.setZoomLevel(clampedZoom);
+      _currentZoomLevel = clampedZoom;
+    } catch (e) {
+      debugPrint('Error setting zoom level: $e');
+    }
+  }
+
+  Future<void> _onScaleEnd(ScaleEndDetails details) async {
+    // Update base zoom level to current zoom level for next gesture
+    if (_cameraController != null && _cameraController!.value.isInitialized) {
+      // Use the zoom level we've been tracking
+      _baseZoomLevel = _currentZoomLevel;
+      _currentScale = 1.0;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -357,14 +431,20 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
         topLeft: Radius.circular(16),
         topRight: Radius.circular(16),
       ),
-      child: Container(
-        color: Colors.black,
-        child: FittedBox(
-          fit: BoxFit.cover,
-          child: SizedBox(
-            width: cameraPreviewWidth,
-            height: cameraPreviewHeight,
-            child: CameraPreview(_cameraController!),
+      child: GestureDetector(
+        onDoubleTap: switchCamera,
+        onScaleStart: _onScaleStart,
+        onScaleUpdate: _onScaleUpdate,
+        onScaleEnd: _onScaleEnd,
+        child: Container(
+          color: Colors.black,
+          child: FittedBox(
+            fit: BoxFit.cover,
+            child: SizedBox(
+              width: cameraPreviewWidth,
+              height: cameraPreviewHeight,
+              child: CameraPreview(_cameraController!),
+            ),
           ),
         ),
       ),

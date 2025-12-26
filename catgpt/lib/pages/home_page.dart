@@ -52,6 +52,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
 
+  void _handlePostAdPopup() {
+    if (_adsRemoved) return;
+    _adsWatchedCount++;
+    _saveAdsWatchedCount();
+    if (_adsWatchedCount == 2 || (_adsWatchedCount > 2 && (_adsWatchedCount - 2) % 3 == 0)) {
+      _showRemoveAdsPopup();
+    }
+  }
+
+  // Tracks how many rewarded ads have been watched for popup logic
+  int _adsWatchedCount = 0;
+
   @override
   void initState() {
     super.initState();
@@ -89,6 +101,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       // Load purchase status from SharedPreferences
       _adsRemoved = _prefs!.getBool(noAdsPrefsKey) ?? false;
       _consecutiveNoCatCount = _prefs!.getInt('consecutiveNoCatCount') ?? 0;
+      _adsWatchedCount = _prefs!.getInt('adsWatchedCount') ?? 0;
       
       if (mounted) {
         setState(() {
@@ -113,6 +126,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Future<void> _saveNoCatCount() async {
     if (_prefs == null) return;
     await _prefs!.setInt('consecutiveNoCatCount', _consecutiveNoCatCount);
+  }
+
+  Future<void> _saveAdsWatchedCount() async {
+    if (_prefs == null) return;
+    await _prefs!.setInt('adsWatchedCount', _adsWatchedCount);
   }
 
   Future<void> _verifyPurchaseStatus() async {
@@ -259,10 +277,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
-  Future<void> _showRewardedAdIfAvailable() async {
+  Future<void> _showRewardedAdIfAvailable({VoidCallback? onAdFinished}) async {
     final ad = _rewardedAd;
     if (ad == null) return;
-    await ad.show(onUserEarnedReward: (ad, reward) {});
+    await ad.show(onUserEarnedReward: (ad, reward) {
+      // Called when user finishes ad; run custom logic after.
+      if (onAdFinished != null) onAdFinished();
+    });
     ad.dispose();
     _rewardedAd = null;
     _loadRewardedAd();
@@ -423,6 +444,89 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     await _handleImageCaptured(bytes);
   }
 
+  Future<void> _onSwitchCamera() async {
+    if (_currentIndex == 1 && _cameraPageKey.currentState != null) {
+      final cameraState = _cameraPageKey.currentState!;
+      await cameraState.switchCamera();
+    }
+  }
+
+  Widget _buildCameraButtons(ThemeData theme) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Main camera button
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: LinearGradient(
+              colors: [
+                theme.colorScheme.primary,
+                theme.colorScheme.tertiary,
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: theme.colorScheme.primary.withOpacity(0.4),
+                blurRadius: 20,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _onTakePhoto,
+              borderRadius: BorderRadius.circular(40),
+              child: const Icon(
+                Icons.camera_alt_rounded,
+                size: 36,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        // Reverse camera button (to the right)
+        Container(
+          width: 56,
+          height: 56,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: Colors.black.withOpacity(0.35),
+            border: Border.all(
+              color: Colors.white.withOpacity(0.6),
+              width: 2,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.3),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: _onSwitchCamera,
+              borderRadius: BorderRadius.circular(28),
+              child: const Icon(
+                Icons.flip_camera_ios_rounded,
+                size: 28,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   /// Handles picking an image from gallery, showing ad prompt if needed, and translating
   Future<void> _onSelectImageAndTranslate() async {
     final shouldPromptForAd = _consecutiveNoCatCount >= 3 && !_adsRemoved;
@@ -537,6 +641,94 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return result ?? false;
   }
 
+  Future<void> _showRemoveAdsPopup() async {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(24),
+          ),
+          backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+          title: Row(
+            children: [
+              Icon(
+                Icons.sentiment_dissatisfied_rounded,
+                color: theme.colorScheme.primary,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Tired of the ads?',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            'Remove all ads forever with a one-time in-app purchase!',
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withOpacity(0.8),
+              fontSize: 15,
+              height: 1.4,
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(
+                foregroundColor: theme.colorScheme.onSurface.withOpacity(0.7),
+              ),
+              child: const Text(
+                'No thanks',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [
+                    theme.colorScheme.primary,
+                    theme.colorScheme.tertiary,
+                  ],
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: ElevatedButton(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  FocusScope.of(context).unfocus();
+                  // Trigger purchase flow
+                  _buyNoAds();
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.transparent,
+                  shadowColor: Colors.transparent,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text(
+                  'Remove Ads',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
   Future<void> evaluateImage(Uint8List imageBytes) async {
     // Prevent duplicate calls - if already loading, return early
@@ -573,10 +765,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           
           await _addHistoryEntry(text: text, imageBytes: imageBytes);
 
-          // Show ad on every third translation, starting with the third (no ad on first two)
-          // After adding entry, length is 1, 2, 3, 4, 5, 6... We want ads on 3rd, 6th, 9th (multiples of 3)
-          if (!_adsRemoved && translationHistory.length > 1 && translationHistory.length % 3 == 0) {
-            await _showRewardedAdIfAvailable();
+          // Show ad on every other translation, starting with the second (no ad on first)
+          // After adding entry, length is 1, 2, 3, 4, 5, 6... We want ads on 2nd, 4th, 6th (multiples of 2)
+          if (!_adsRemoved && translationHistory.length > 0 && translationHistory.length % 2 == 0) {
+            await _showRewardedAdIfAvailable(onAdFinished: _handlePostAdPopup);
           }
         } else {
           // No cat detected - increment the consecutive count
@@ -732,40 +924,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         ],
       ),
       floatingActionButton: _currentIndex == 1 && _pickedImageBytes == null
-          ? Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primary,
-                    theme.colorScheme.tertiary,
-                  ],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: theme.colorScheme.primary.withOpacity(0.4),
-                    blurRadius: 20,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: _onTakePhoto,
-                  borderRadius: BorderRadius.circular(40),
-                  child: const Icon(
-                    Icons.camera_alt_rounded,
-                    size: 36,
-                    color: Colors.white,
-                  ),
-                ),
-              ),
-            )
+          ? _buildCameraButtons(theme)
                   : null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       bottomNavigationBar: Container(
