@@ -51,6 +51,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   // In-app purchase
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
+  ProductDetails? _noAdsProduct;
+  bool _isLoadingNoAdsProduct = false;
+  String? _purchaseError;
 
   void _handlePostAdPopup() {
     if (_adsRemoved) return;
@@ -77,6 +80,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   Future<void> _initializeState() async {
     await _loadPrefsAndHistory();
+    await _initNoAdsProduct();
     // Verify purchase status with store before trusting SharedPreferences
     await _verifyPurchaseStatus();
     if (!_adsRemoved) {
@@ -90,6 +94,35 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     _purchaseSubscription?.cancel();
     _rewardedAd?.dispose();
     super.dispose();
+  }
+
+  Future<void> _initNoAdsProduct() async {
+    _isLoadingNoAdsProduct = true;
+    _purchaseError = null;
+    setState(() {});
+    try {
+      final available = await _inAppPurchase.isAvailable();
+      if (!available) {
+        _purchaseError = 'Store not available.';
+        setState(() => _isLoadingNoAdsProduct = false);
+        return;
+      }
+      final response = await _inAppPurchase.queryProductDetails({noAdsProductId});
+      if (response.error != null) {
+        _purchaseError = response.error?.message;
+      }
+      _noAdsProduct = response.productDetails.isNotEmpty ? response.productDetails.first : null;
+      if (_noAdsProduct == null) {
+        _purchaseError = Platform.isIOS
+            ? 'Product not found. Ensure the product is created in App Store Connect and associated with this build.'
+            : 'Product not found. Ensure the product is created in Google Play Console.';
+      }
+    } catch (e) {
+      _purchaseError = 'Error loading product: $e';
+    } finally {
+      _isLoadingNoAdsProduct = false;
+      if (mounted) setState(() {});
+    }
   }
 
   Future<void> _loadPrefsAndHistory() async {
@@ -729,6 +762,23 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     );
   }
 
+
+  Future<void> _buyNoAds() async {
+    if (_adsRemoved) return;
+    final product = _noAdsProduct;
+    if (product == null) {
+      _purchaseError = 'No Ads product unavailable';
+      setState(() {});
+      return;
+    }
+    setState(() {
+      _purchaseError = null;
+      _isLoadingNoAdsProduct = true;
+    });
+    final purchaseParam = PurchaseParam(productDetails: product);
+    await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+    setState(() { _isLoadingNoAdsProduct = false; });
+  }
 
   Future<void> evaluateImage(Uint8List imageBytes) async {
     // Prevent duplicate calls - if already loading, return early
