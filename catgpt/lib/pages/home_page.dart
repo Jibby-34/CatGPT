@@ -861,6 +861,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           // Show ad on every other translation, starting with the second (no ad on first)
           // After adding entry, length is 1, 2, 3, 4, 5, 6... We want ads on 2nd, 4th, 6th (multiples of 2)
           if (!_adsRemoved && translationHistory.length > 0 && translationHistory.length % 2 == 0) {
+            // Delay ad by 3 seconds after translation is shown
+            await Future.delayed(const Duration(seconds: 3));
             await _showRewardedAdIfAvailable();
           }
         } else {
