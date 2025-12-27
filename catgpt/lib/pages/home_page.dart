@@ -55,17 +55,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   bool _isLoadingNoAdsProduct = false;
   String? _purchaseError;
 
-  void _handlePostAdPopup() {
-    if (_adsRemoved) return;
-    _adsWatchedCount++;
-    _saveAdsWatchedCount();
-    if (_adsWatchedCount == 2 || (_adsWatchedCount > 2 && (_adsWatchedCount - 2) % 3 == 0)) {
-      _showRemoveAdsPopup();
-    }
+  // Check if popup should show before translation (based on current history length)
+  // Returns true if popup should be shown
+  // Shows at 3rd translation, then every 6th after that (9th, 15th, 21st, etc.)
+  bool _shouldShowPurchasePopup() {
+    if (_adsRemoved) return false;
+    // Show popup before 3rd translation, then every 6th after that (9th, 15th, 21st, etc.)
+    // Check if the NEXT translation (current length + 1) would be 3, 9, 15, 21, etc.
+    final nextTranslationCount = translationHistory.length + 1;
+    // Pattern: 3, then (3 + 6*n) where n = 1, 2, 3, 4...
+    // Which is: 3, 9, 15, 21, 27...
+    return nextTranslationCount == 3 || 
+           (nextTranslationCount > 3 && (nextTranslationCount - 3) % 6 == 0);
   }
-
-  // Tracks how many rewarded ads have been watched for popup logic
-  int _adsWatchedCount = 0;
 
   @override
   void initState() {
@@ -134,7 +136,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       // Load purchase status from SharedPreferences
       _adsRemoved = _prefs!.getBool(noAdsPrefsKey) ?? false;
       _consecutiveNoCatCount = _prefs!.getInt('consecutiveNoCatCount') ?? 0;
-      _adsWatchedCount = _prefs!.getInt('adsWatchedCount') ?? 0;
       
       if (mounted) {
         setState(() {
@@ -159,11 +160,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   Future<void> _saveNoCatCount() async {
     if (_prefs == null) return;
     await _prefs!.setInt('consecutiveNoCatCount', _consecutiveNoCatCount);
-  }
-
-  Future<void> _saveAdsWatchedCount() async {
-    if (_prefs == null) return;
-    await _prefs!.setInt('adsWatchedCount', _adsWatchedCount);
   }
 
   Future<void> _verifyPurchaseStatus() async {
@@ -676,13 +672,15 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return result ?? false;
   }
 
-  Future<void> _showRemoveAdsPopup() async {
+  // Shows popup and returns true if user purchased, false if they clicked "Maybe later"
+  Future<bool> _showRemoveAdsPopup() async {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
+    bool? purchased = false;
     await showDialog<void>(
       context: context,
-      barrierDismissible: true,
+      barrierDismissible: false, // Don't allow dismissing without choosing
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(
@@ -692,14 +690,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           title: Row(
             children: [
               Icon(
-                Icons.sentiment_dissatisfied_rounded,
+                Icons.auto_awesome_rounded,
                 color: theme.colorScheme.primary,
                 size: 24,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Tired of the ads?',
+                  'Enjoying CatGPT?',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     color: theme.colorScheme.onSurface,
@@ -708,62 +706,156 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
             ],
           ),
-          content: Text(
-            'Remove all ads forever with a one-time in-app purchase!',
-            style: TextStyle(
-              color: theme.colorScheme.onSurface.withOpacity(0.8),
-              fontSize: 15,
-              height: 1.4,
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              style: TextButton.styleFrom(
-                foregroundColor: theme.colorScheme.onSurface.withOpacity(0.7),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Remove all ads forever and support the app with a one-time purchase!',
+                style: TextStyle(
+                  color: theme.colorScheme.onSurface.withOpacity(0.8),
+                  fontSize: 15,
+                  height: 1.4,
+                ),
               ),
-              child: const Text(
-                'No thanks',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    theme.colorScheme.primary,
-                    theme.colorScheme.tertiary,
+              const SizedBox(height: 24),
+              // Pricing display with discount - centered and well-spaced
+              Center(
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.baseline,
+                  textBaseline: TextBaseline.alphabetic,
+                  children: [
+                    // Original price with strikethrough
+                    Text(
+                      '\$4.99',
+                      style: TextStyle(
+                        fontSize: 20,
+                        color: theme.colorScheme.onSurface.withOpacity(0.4),
+                        decoration: TextDecoration.lineThrough,
+                        decorationThickness: 2.5,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    // Current price - larger and prominent
+                    Text(
+                      _noAdsProduct?.price ?? '\$1.99',
+                      style: TextStyle(
+                        fontSize: 32,
+                        color: theme.colorScheme.primary,
+                        fontWeight: FontWeight.w900,
+                        height: 1.0,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    // Discount badge - positioned above/beside price
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.error,
+                        borderRadius: BorderRadius.circular(10),
+                        boxShadow: [
+                          BoxShadow(
+                            color: theme.colorScheme.error.withOpacity(0.3),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Text(
+                        '40% OFF',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 0.8,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-                borderRadius: BorderRadius.circular(12),
               ),
-              child: ElevatedButton(
-                onPressed: () {
-                  Navigator.of(context).pop();
-                  FocusScope.of(context).unfocus();
-                  // Trigger purchase flow
-                  _buyNoAds();
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.transparent,
-                  shadowColor: Colors.transparent,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text(
-                  'Remove Ads',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    color: Colors.white,
+            ],
+          ),
+          actions: [
+            // Buttons side by side with equal sizing
+            Row(
+              children: [
+                // "Maybe later" button - takes half width
+                Expanded(
+                  child: TextButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                      purchased = false; // User chose "Maybe later"
+                    },
+                    style: TextButton.styleFrom(
+                      foregroundColor: theme.colorScheme.onSurface.withOpacity(0.7),
+                      padding: const EdgeInsets.symmetric(vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Maybe later',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 15,
+                      ),
+                    ),
                   ),
                 ),
-              ),
+                const SizedBox(width: 12),
+                // "Remove Ads" button - takes half width
+                Expanded(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [
+                          theme.colorScheme.primary,
+                          theme.colorScheme.tertiary,
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        FocusScope.of(context).unfocus();
+                        purchased = true; // User chose to purchase
+                        // Trigger purchase flow
+                        _buyNoAds();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.transparent,
+                        shadowColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Remove Ads\n${_noAdsProduct?.price ?? '\$1.99'}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          fontSize: 15,
+                          height: 1.2,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         );
       },
     );
+    return purchased ?? false;
   }
-
 
   Future<void> _buyNoAds() async {
     if (_adsRemoved) return;
@@ -811,19 +903,38 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         setState(() => _outputText = text);
 
         if (!text.contains('No cat detected!')) {
-          // Cat detected - reset the consecutive no-cat count
+          // Cat detected - this is a successful translation
+          // Check if popup should be shown BEFORE adding to history
+          final shouldShowPopup = _shouldShowPurchasePopup();
+          
+          if (shouldShowPopup) {
+            // Show popup and wait for user response before adding to history
+            final userPurchased = await _showRemoveAdsPopup();
+            
+            if (!userPurchased) {
+              // User clicked "Maybe later" - show ad before proceeding
+              if (!_adsRemoved) {
+                await _showRewardedAdIfAvailable();
+              }
+            }
+            // If user purchased, _buyNoAds() was already called, proceed with adding to history
+          }
+          
+          // Reset the consecutive no-cat count
           _consecutiveNoCatCount = 0;
           await _saveNoCatCount();
           
+          // Only add successful translations to history (not "No cat detected")
           await _addHistoryEntry(text: text, imageBytes: imageBytes);
 
           // Show ad on every other translation, starting with the second (no ad on first)
           // After adding entry, length is 1, 2, 3, 4, 5, 6... We want ads on 2nd, 4th, 6th (multiples of 2)
           if (!_adsRemoved && translationHistory.length > 0 && translationHistory.length % 2 == 0) {
-            await _showRewardedAdIfAvailable(onAdFinished: _handlePostAdPopup);
+            await _showRewardedAdIfAvailable();
           }
         } else {
           // No cat detected - increment the consecutive count
+          // Do NOT add to history, so it doesn't count towards popup trigger
           _consecutiveNoCatCount++;
           await _saveNoCatCount();
         }

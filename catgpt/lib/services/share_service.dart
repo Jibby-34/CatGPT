@@ -15,7 +15,7 @@ class ShareService {
     required Uint8List imageBytes,
     required String text,
     required BuildContext context,
-    int imageWidth = 1080,
+    int imageWidth = 1440, // Increased from 1080 for higher resolution
   }) async {
     try {
       // Decode the original image
@@ -35,32 +35,39 @@ class ShareService {
 
       // Calculate scaling factor based on image size
       // Use the image width as base, but ensure minimum sizes for readability
-      final baseScale = imageWidth / 1080.0; // Scale relative to 1080px standard
+      final baseScale = imageWidth / 1440.0; // Scale relative to 1440px standard
       final minScale = 0.5; // Minimum scale for very small images
       final maxScale = 2.0; // Maximum scale for very large images
       final scale = baseScale.clamp(minScale, maxScale);
 
       // Calculate font sizes based on scale
-      final textFontSize = (34 * scale).round().clamp(20, 60).toDouble();
+      final textFontSize = (40 * scale).round().clamp(24, 72).toDouble(); // Increased base size
 
       // Calculate spacing and padding based on scale
-      final horizontalPadding = (60 * scale).round();
-      final boxPadding = (50 * scale).round().toDouble();
-      final watermarkHeight = (50 * scale).round().toDouble();
+      final horizontalPadding = (80 * scale).round(); // Increased padding
+      final boxPadding = (60 * scale).round().toDouble(); // Increased padding
+      final watermarkHeight = (70 * scale).round().toDouble(); // Increased watermark height
 
       // Calculate text box height - use text painter to measure
       final textStyle = TextStyle(
         color: Colors.white,
         fontSize: textFontSize,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700, // Increased from w600 for better contrast
         height: 1.4,
+        shadows: [
+          Shadow(
+            offset: Offset(0, 2),
+            blurRadius: 4,
+            color: Colors.black.withOpacity(0.5),
+          ),
+        ],
       );
       final textSpan = TextSpan(text: mainText, style: textStyle);
       final textPainter = TextPainter(
         text: textSpan,
         textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
-        maxLines: 8, // Allow more lines for smaller images
+        maxLines: 10, // Allow more lines for better text visibility
       );
       textPainter.layout(maxWidth: imageWidth - (horizontalPadding * 2));
       final textHeight = textPainter.height;
@@ -68,50 +75,61 @@ class ShareService {
       // Box height: text height + padding top/bottom + watermark space
       final boxHeight = (textHeight + (boxPadding * 2) + watermarkHeight).round();
 
-      // Image should be 2/3 bigger than the box, so: image height = box height * (1 + 2/3) = box height * 5/3
-      final targetImageHeight = (boxHeight * 5 / 3).round();
+      // For better iMessage/Instagram/TikTok compatibility:
+      // - Make text box take up ~45% of total height so text is visible in iMessage previews
+      // - Vertical images (9:16) work well for Instagram stories and TikTok
+      // - Text box being larger ensures it's not cropped in thumbnails
+      // - targetImageHeight = boxHeight / 0.45 - boxHeight = boxHeight * (1/0.45 - 1) = boxHeight * 1.22
+      final targetImageHeight = (boxHeight * 1.22).round();
 
       // Resize image to fit the target height, maintaining aspect ratio
       int finalHeight = targetImageHeight;
       int finalWidth = (finalHeight * aspectRatio).round();
       
-      // If width exceeds max width, scale down proportionally
+      // Constrain to maximum width (but allow up to 1440px for high-res output)
       if (finalWidth > imageWidth) {
         finalWidth = imageWidth;
         finalHeight = (finalWidth / aspectRatio).round();
       }
 
       // Ensure minimum dimensions for very small images
-      if (finalWidth < 300 || finalHeight < 200) {
-        if (finalWidth < 300) {
-          finalWidth = 300;
+      if (finalWidth < 400 || finalHeight < 300) {
+        if (finalWidth < 400) {
+          finalWidth = 400;
           finalHeight = (finalWidth / aspectRatio).round();
         }
-        if (finalHeight < 200) {
-          finalHeight = 200;
+        if (finalHeight < 300) {
+          finalHeight = 300;
           finalWidth = (finalHeight * aspectRatio).round();
         }
         // Recalculate box based on adjusted image size
-        final adjustedScale = finalWidth / 1080.0;
-        final adjustedTextSize = (34 * adjustedScale).round().clamp(20, 60).toDouble();
+        final adjustedScale = finalWidth / 1440.0;
+        final adjustedTextSize = (40 * adjustedScale).round().clamp(24, 72).toDouble();
         final adjustedTextStyle = TextStyle(
           color: Colors.white,
           fontSize: adjustedTextSize,
-          fontWeight: FontWeight.w600,
+          fontWeight: FontWeight.w700,
           height: 1.4,
+          shadows: [
+            Shadow(
+              offset: Offset(0, 2),
+              blurRadius: 4,
+              color: Colors.black.withOpacity(0.5),
+            ),
+          ],
         );
         final adjustedTextSpan = TextSpan(text: mainText, style: adjustedTextStyle);
         final adjustedTextPainter = TextPainter(
           text: adjustedTextSpan,
           textAlign: TextAlign.center,
           textDirection: TextDirection.ltr,
-          maxLines: 8,
+          maxLines: 10,
         );
         adjustedTextPainter.layout(maxWidth: finalWidth - (horizontalPadding * 2));
         final adjustedTextHeight = adjustedTextPainter.height;
         final adjustedBoxHeight = (adjustedTextHeight + (boxPadding * 2) + watermarkHeight).round();
-        // Update boxHeight and recalculate final dimensions
-        final newTargetHeight = (adjustedBoxHeight * 5 / 3).round();
+        // Update boxHeight and recalculate final dimensions with new ratio
+        final newTargetHeight = (adjustedBoxHeight * 1.22).round();
         if (newTargetHeight > finalHeight) {
           finalHeight = newTargetHeight;
           finalWidth = (finalHeight * aspectRatio).round();
@@ -140,14 +158,14 @@ class ShareService {
       }
 
       // Recalculate final scale based on actual finalWidth for consistent sizing
-      final finalScale = (finalWidth / 1080.0).clamp(minScale, maxScale);
-      final finalTextFontSize = (34 * finalScale).round().clamp(20, 60).toDouble();
-      final finalWatermarkFontSize = (18 * finalScale).round().clamp(12, 32).toDouble();
-      // Make logo bigger - increase base size from 32 to 48
-      final finalLogoSize = (48 * finalScale).round().clamp(36, 72);
-      final finalHorizontalPadding = (60 * finalScale).round();
-      final finalBoxPadding = (50 * finalScale).round().toDouble();
-      final finalWatermarkHeight = (50 * finalScale).round().toDouble();
+      final finalScale = (finalWidth / 1440.0).clamp(minScale, maxScale);
+      final finalTextFontSize = (40 * finalScale).round().clamp(24, 72).toDouble();
+      final finalWatermarkFontSize = (22 * finalScale).round().clamp(14, 36).toDouble(); // Increased
+      // Make logo significantly bigger for higher resolution - increased from 48 to 64
+      final finalLogoSize = (64 * finalScale).round().clamp(48, 96); // Much larger logo
+      final finalHorizontalPadding = (80 * finalScale).round();
+      final finalBoxPadding = (60 * finalScale).round().toDouble();
+      final finalWatermarkHeight = (70 * finalScale).round().toDouble();
       
       // Ensure watermark has enough space - adjust watermarkHeight if needed
       final minWatermarkHeight = finalLogoSize + 10; // Logo + padding
@@ -159,15 +177,22 @@ class ShareService {
       final finalTextStyle = TextStyle(
         color: Colors.white,
         fontSize: finalTextFontSize,
-        fontWeight: FontWeight.w600,
+        fontWeight: FontWeight.w700, // Increased from w600 for better contrast
         height: 1.4,
+        shadows: [
+          Shadow(
+            offset: Offset(0, 2),
+            blurRadius: 4,
+            color: Colors.black.withOpacity(0.5),
+          ),
+        ],
       );
       final finalTextSpan = TextSpan(text: mainText, style: finalTextStyle);
       final finalTextPainter = TextPainter(
         text: finalTextSpan,
         textAlign: TextAlign.center,
         textDirection: TextDirection.ltr,
-        maxLines: 8,
+        maxLines: 10, // Increased from 8
       );
       finalTextPainter.layout(maxWidth: finalWidth - (finalHorizontalPadding * 2));
       final finalTextHeight = finalTextPainter.height;
@@ -272,12 +297,12 @@ class ShareService {
 
       // Draw watermark text next to logo
       final watermarkStyle = TextStyle(
-        color: Colors.white.withOpacity(0.85),
+        color: Colors.white.withOpacity(0.9), // Slightly increased opacity
         fontSize: finalWatermarkFontSize,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w600, // Increased from w500
         letterSpacing: 0.3,
       );
-      final watermarkSpan = TextSpan(text: 'Translated with CatGPT', style: watermarkStyle);
+      final watermarkSpan = TextSpan(text: 'Generated with CatGPT', style: watermarkStyle);
       final watermarkPainter = TextPainter(
         text: watermarkSpan,
         textDirection: TextDirection.ltr,
