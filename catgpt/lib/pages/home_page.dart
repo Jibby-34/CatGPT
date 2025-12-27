@@ -706,83 +706,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               ),
             ],
           ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Remove all ads forever and support the app with a one-time purchase!',
-                style: TextStyle(
-                  color: theme.colorScheme.onSurface.withOpacity(0.8),
-                  fontSize: 15,
-                  height: 1.4,
-                ),
-              ),
-              const SizedBox(height: 24),
-              // Pricing display with discount - centered and well-spaced
-              Center(
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    // Original price with strikethrough
-                    Text(
-                      '\$4.99',
-                      style: TextStyle(
-                        fontSize: 20,
-                        color: theme.colorScheme.onSurface.withOpacity(0.4),
-                        decoration: TextDecoration.lineThrough,
-                        decorationThickness: 2.5,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    // Current price - larger and prominent
-                    Text(
-                      _noAdsProduct?.price ?? '\$1.99',
-                      style: TextStyle(
-                        fontSize: 32,
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w900,
-                        height: 1.0,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    // Discount badge - positioned above/beside price
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.error,
-                        borderRadius: BorderRadius.circular(10),
-                        boxShadow: [
-                          BoxShadow(
-                            color: theme.colorScheme.error.withOpacity(0.3),
-                            blurRadius: 4,
-                            offset: const Offset(0, 2),
-                          ),
-                        ],
-                      ),
-                      child: Text(
-                        '40% OFF',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          letterSpacing: 0.8,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          content: Text(
+            'Remove all ads forever and support the app with a one-time purchase!',
+            style: TextStyle(
+              color: theme.colorScheme.onSurface.withOpacity(0.8),
+              fontSize: 15,
+              height: 1.4,
+            ),
           ),
           actions: [
             // Buttons side by side with equal sizing
             Row(
               children: [
-                // "Maybe later" button - takes half width
+                // "Maybe later" button - takes half width, less prominent
                 Expanded(
                   child: TextButton(
                     onPressed: () {
@@ -790,17 +726,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       purchased = false; // User chose "Maybe later"
                     },
                     style: TextButton.styleFrom(
-                      foregroundColor: theme.colorScheme.onSurface.withOpacity(0.7),
+                      foregroundColor: theme.colorScheme.onSurface.withOpacity(0.5),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text(
+                    child: Text(
                       'Maybe later',
                       style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 15,
+                        fontWeight: FontWeight.w500,
+                        fontSize: 14,
+                        color: theme.colorScheme.onSurface.withOpacity(0.5),
                       ),
                     ),
                   ),
@@ -836,13 +773,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         ),
                       ),
                       child: Text(
-                        'Remove Ads\n${_noAdsProduct?.price ?? '\$1.99'}',
+                        'Purchase - ${_noAdsProduct?.price ?? '\$1.99'}',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
                           fontSize: 15,
-                          height: 1.2,
                         ),
                       ),
                     ),
@@ -911,12 +847,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             // Show popup and wait for user response before adding to history
             final userPurchased = await _showRemoveAdsPopup();
             
-            if (!userPurchased) {
-              // User clicked "Maybe later" - show ad before proceeding
-              if (!_adsRemoved) {
-                await _showRewardedAdIfAvailable();
-              }
-            }
+            // If user clicked "Maybe later", just proceed without showing ad
             // If user purchased, _buyNoAds() was already called, proceed with adding to history
           }
           

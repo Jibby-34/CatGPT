@@ -367,61 +367,15 @@ class _SettingsPageState extends State<SettingsPage> {
                                   color: theme.colorScheme.onSurface,
                                 ),
                               ),
-                              const SizedBox(height: 8),
-                              // Pricing display with discount
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.baseline,
-                                textBaseline: TextBaseline.alphabetic,
-                                children: [
-                                  // Original price with strikethrough
-                                  Text(
-                                    '\$4.99',
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      color: theme.colorScheme.onSurface.withOpacity(0.4),
-                                      decoration: TextDecoration.lineThrough,
-                                      decorationThickness: 2.5,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  // Current price
-                                  Text(
-                                    _noAdsProduct?.price ?? '\$1.99',
-                                    style: TextStyle(
-                                      fontSize: 28,
-                                      color: theme.colorScheme.primary,
-                                      fontWeight: FontWeight.w900,
-                                      height: 1.0,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  // Discount badge
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                                    decoration: BoxDecoration(
-                                      color: theme.colorScheme.error,
-                                      borderRadius: BorderRadius.circular(8),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: theme.colorScheme.error.withOpacity(0.3),
-                                          blurRadius: 4,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: Text(
-                                      '40% OFF',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w900,
-                                        letterSpacing: 0.8,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                              const SizedBox(height: 4),
+                              // Current price only
+                              Text(
+                                _noAdsProduct?.price ?? '\$1.99',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ],
                           ),
