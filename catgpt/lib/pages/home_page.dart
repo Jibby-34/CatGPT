@@ -836,7 +836,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           throw Exception('Invalid server response');
         }
 
-        setState(() => _outputText = text);
+        setState(() {
+          _outputText = text;
+          _isLoading = false; // Clear loading state once translation is shown
+        });
 
         if (!text.contains('No cat detected!')) {
           // Cat detected - this is a successful translation
@@ -844,6 +847,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           final shouldShowPopup = _shouldShowPurchasePopup();
           
           if (shouldShowPopup) {
+            // Delay popup by 5 seconds after translation is shown
+            await Future.delayed(const Duration(seconds: 5));
             // Show popup and wait for user response before adding to history
             final userPurchased = await _showRemoveAdsPopup();
             
@@ -861,15 +866,19 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           // Show ad on every other translation, starting with the second (no ad on first)
           // After adding entry, length is 1, 2, 3, 4, 5, 6... We want ads on 2nd, 4th, 6th (multiples of 2)
           if (!_adsRemoved && translationHistory.length > 0 && translationHistory.length % 2 == 0) {
-            // Delay ad by 3 seconds after translation is shown
-            await Future.delayed(const Duration(seconds: 3));
-            await _showRewardedAdIfAvailable();
+            // Delay ad by 5 seconds after translation is shown
+            Future.delayed(const Duration(seconds: 5), () {
+              if (mounted) {
+                _showRewardedAdIfAvailable();
+              }
+            });
           }
         } else {
           // No cat detected - increment the consecutive count
           // Do NOT add to history, so it doesn't count towards popup trigger
           _consecutiveNoCatCount++;
           await _saveNoCatCount();
+          // Loading state already cleared above when translation was set
         }
       } else {
         debugPrint('Server error response (${response.statusCode}): \n${response.body}');
