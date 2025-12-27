@@ -485,10 +485,10 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   }
 
   Widget _buildCameraButtons(ThemeData theme) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
+    return Stack(
+      alignment: Alignment.center,
       children: [
-        // Main camera button
+        // Main camera button (centered)
         Container(
           width: 80,
           height: 80,
@@ -523,35 +523,37 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ),
           ),
         ),
-        const SizedBox(width: 16),
-        // Reverse camera button (to the right)
-        Container(
-          width: 56,
-          height: 56,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.black.withOpacity(0.35),
-            border: Border.all(
-              color: Colors.white.withOpacity(0.6),
-              width: 2,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.3),
-                blurRadius: 10,
-                offset: const Offset(0, 4),
+        // Reverse camera button (positioned 16px to the right of center)
+        Transform.translate(
+          offset: const Offset(80 / 2 + 16 + 56 / 2, 0), // Half main button + spacing + half flip button
+          child: Container(
+            width: 56,
+            height: 56,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.black.withOpacity(0.35),
+              border: Border.all(
+                color: Colors.white.withOpacity(0.6),
+                width: 2,
               ),
-            ],
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: _onSwitchCamera,
-              borderRadius: BorderRadius.circular(28),
-              child: const Icon(
-                Icons.flip_camera_ios_rounded,
-                size: 28,
-                color: Colors.white,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.3),
+                  blurRadius: 10,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: _onSwitchCamera,
+                borderRadius: BorderRadius.circular(28),
+                child: const Icon(
+                  Icons.flip_camera_ios_rounded,
+                  size: 28,
+                  color: Colors.white,
+                ),
               ),
             ),
           ),
@@ -971,12 +973,18 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
           // Global analyzing/loading overlay
           if (_isLoading) _buildLoadingOverlay(),
+          
+          // Camera buttons - positioned at bottom center, shown immediately when on camera tab
+          // Match FloatingActionButtonLocation.centerFloat positioning (16px above bottom nav bar)
+          if (_currentIndex == 1 && _pickedImageBytes == null)
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 16.0, // Standard offset for centerFloat (16px above bottom nav bar)
+              child: _buildCameraButtons(theme),
+            ),
         ],
       ),
-      floatingActionButton: _currentIndex == 1 && _pickedImageBytes == null
-          ? _buildCameraButtons(theme)
-                  : null,
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
           color: isDark 

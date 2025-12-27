@@ -117,11 +117,40 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
   }
 
   Future<void> switchCamera() async {
-    if (_cameras == null || _cameras!.length < 2) return;
-    if (_cameraController == null || !_cameraController!.value.isInitialized) return;
+    if (kIsWeb) return; // Camera switching not supported on web
+    
+    try {
+      // Ensure cameras are loaded
+      if (_cameras == null) {
+        _cameras = await availableCameras();
+      }
+      
+      // Check if we have at least 2 cameras to switch between
+      if (_cameras == null || _cameras!.isEmpty || _cameras!.length < 2) {
+        debugPrint('Cannot switch camera: ${_cameras == null ? "cameras not loaded" : "only ${_cameras!.length} camera(s) available"}');
+        return;
+      }
+      
+      // Check if current camera is initialized
+      if (_cameraController == null || !_cameraController!.value.isInitialized) {
+        debugPrint('Cannot switch camera: camera not initialized');
+        return;
+      }
 
-    final newIndex = (_currentCameraIndex + 1) % _cameras!.length;
-    await _initializeCamera(cameraIndex: newIndex);
+      // Calculate new camera index
+      final newIndex = (_currentCameraIndex + 1) % _cameras!.length;
+      
+      // Only switch if the new index is different
+      if (newIndex == _currentCameraIndex) {
+        debugPrint('Cannot switch camera: only one camera available');
+        return;
+      }
+      
+      debugPrint('Switching camera from index $_currentCameraIndex to $newIndex');
+      await _initializeCamera(cameraIndex: newIndex);
+    } catch (e) {
+      debugPrint('Error switching camera: $e');
+    }
   }
 
   Future<void> takePicture() async {
