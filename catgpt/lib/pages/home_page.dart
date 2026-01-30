@@ -690,14 +690,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           title: Row(
             children: [
               Icon(
-                Icons.auto_awesome_rounded,
+                Icons.pets_rounded,
                 color: theme.colorScheme.primary,
                 size: 24,
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(
-                  'Enjoying CatGPT?',
+                  'Unlock CatGPT Premium',
                   style: TextStyle(
                     fontWeight: FontWeight.w700,
                     color: theme.colorScheme.onSurface,
@@ -707,7 +707,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             ],
           ),
           content: Text(
-            'Remove all ads forever and support the app with a one-time purchase!',
+            'Get unlimited history, no watermarks, and more with a one-time purchase!',
             style: TextStyle(
               color: theme.colorScheme.onSurface.withOpacity(0.8),
               fontSize: 15,
@@ -755,7 +755,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child: ElevatedButton(
+                      child: ElevatedButton.icon(
                       onPressed: () {
                         Navigator.of(context).pop();
                         FocusScope.of(context).unfocus();
@@ -772,8 +772,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: Text(
-                        'Purchase - ${_noAdsProduct?.price ?? '\$1.99'}',
+                      icon: const Icon(Icons.pets_rounded, size: 18),
+                      label: Text(
+                        'Get Premium - ${_noAdsProduct?.price ?? '\$2.99'}',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontWeight: FontWeight.w700,
@@ -797,7 +798,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     if (_adsRemoved) return;
     final product = _noAdsProduct;
     if (product == null) {
-      _purchaseError = 'No Ads product unavailable';
+      _purchaseError = 'CatGPT Premium unavailable';
       setState(() {});
       return;
     }
@@ -820,6 +821,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       final headers = {'Content-Type': 'application/json'};
       final base64Image = base64Encode(imageBytes);
 
+      // TODO: Premium captions feature
+      // When premium is active (_adsRemoved == true), send a flag to the backend
+      // to request funnier, more in-depth captions with enhanced personality
+      // Example: Add "premiumMode": _adsRemoved to the request body
+
       final body = jsonEncode({
         "imageBase64": base64Image,
         // prompt removed
@@ -836,10 +842,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           throw Exception('Invalid server response');
         }
 
-        setState(() {
-          _outputText = text;
-          _isLoading = false; // Clear loading state once translation is shown
-        });
+        setState(() => _outputText = text);
 
         if (!text.contains('No cat detected!')) {
           // Cat detected - this is a successful translation
@@ -847,8 +850,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           final shouldShowPopup = _shouldShowPurchasePopup();
           
           if (shouldShowPopup) {
-            // Delay popup by 5 seconds after translation is shown
-            await Future.delayed(const Duration(seconds: 5));
             // Show popup and wait for user response before adding to history
             final userPurchased = await _showRemoveAdsPopup();
             
@@ -866,19 +867,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           // Show ad on every other translation, starting with the second (no ad on first)
           // After adding entry, length is 1, 2, 3, 4, 5, 6... We want ads on 2nd, 4th, 6th (multiples of 2)
           if (!_adsRemoved && translationHistory.length > 0 && translationHistory.length % 2 == 0) {
-            // Delay ad by 5 seconds after translation is shown
-            Future.delayed(const Duration(seconds: 5), () {
-              if (mounted) {
-                _showRewardedAdIfAvailable();
-              }
-            });
+            await _showRewardedAdIfAvailable();
           }
         } else {
           // No cat detected - increment the consecutive count
           // Do NOT add to history, so it doesn't count towards popup trigger
           _consecutiveNoCatCount++;
           await _saveNoCatCount();
-          // Loading state already cleared above when translation was set
         }
       } else {
         debugPrint('Server error response (${response.statusCode}): \n${response.body}');
@@ -1104,7 +1099,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     } else {
       // Other tabs: render as before
       return _currentIndex == 0
-          ? _HomePageContent(
+          ?           _HomePageContent(
               onOpenCamera: () => setState(() {
                 _currentIndex = 1;
                 _outputText = null;
@@ -1117,6 +1112,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               onTakePhotoAndTranslate: _onTakePhoto,
               recentTranslations: translationHistory,
               recentImages: imageHistory,
+              isPremium: _adsRemoved,
+              onShowPremium: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsPage(
+                      isDarkMode: widget.isDarkMode,
+                      onThemeChanged: widget.onThemeChanged,
+                      onClearHistory: _clearHistory,
+                      adsRemoved: _adsRemoved,
+                      onAdsStatusChanged: _updateAdsRemoved,
+                    ),
+                  ),
+                );
+              },
             )
           : HistoryPage(
               translationHistory: translationHistory,
@@ -1124,6 +1134,21 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               favorites: favorites,
               onDeleteEntry: _deleteHistoryEntry,
               onToggleFavorite: _toggleFavorite,
+              isPremium: _adsRemoved,
+              onPurchasePremium: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => SettingsPage(
+                      isDarkMode: widget.isDarkMode,
+                      onThemeChanged: widget.onThemeChanged,
+                      onClearHistory: _clearHistory,
+                      adsRemoved: _adsRemoved,
+                      onAdsStatusChanged: _updateAdsRemoved,
+                    ),
+                  ),
+                );
+              },
             );
     }
   }
@@ -1248,6 +1273,8 @@ class _HomePageContent extends StatelessWidget {
   final Future<void> Function() onTakePhotoAndTranslate;
   final List<String> recentTranslations;
   final List<Uint8List?> recentImages;
+  final bool isPremium;
+  final VoidCallback onShowPremium;
 
   const _HomePageContent({
     required this.onOpenCamera,
@@ -1256,6 +1283,8 @@ class _HomePageContent extends StatelessWidget {
     required this.onTakePhotoAndTranslate,
     required this.recentTranslations,
     required this.recentImages,
+    required this.isPremium,
+    required this.onShowPremium,
   });
 
   @override
@@ -1286,6 +1315,67 @@ class _HomePageContent extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                // Premium badge (only show for non-premium users)
+                if (!isPremium) ...[
+                  GestureDetector(
+                    onTap: onShowPremium,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            theme.colorScheme.primary.withOpacity(0.15),
+                            theme.colorScheme.tertiary.withOpacity(0.1),
+                          ],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: theme.colorScheme.primary.withOpacity(0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                colors: [
+                                  theme.colorScheme.primary,
+                                  theme.colorScheme.tertiary,
+                                ],
+                              ),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.pets_rounded,
+                              size: 18,
+                              color: Colors.white,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Text(
+                            'Unlock Premium Features',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: theme.colorScheme.onSurface,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            Icons.arrow_forward_rounded,
+                            size: 18,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
                 // Centered logo banner with gradient background
                 Container(
                   padding: const EdgeInsets.symmetric(vertical: 32),
@@ -1575,6 +1665,7 @@ class _HomePageContent extends StatelessWidget {
                                     imageBytes: img,
                                     text: text,
                                     context: context,
+                                    isPremium: isPremium,
                                   );
                                 } catch (e) {
                                   if (context.mounted) {

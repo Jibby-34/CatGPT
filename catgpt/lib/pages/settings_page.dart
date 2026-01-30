@@ -304,12 +304,22 @@ class _SettingsPageState extends State<SettingsPage> {
             if (!_adsRemoved) ...[
               Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 12),
-              child: Text(
-                'Premium',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.onSurface,
-                ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.pets_rounded,
+                    size: 22,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'CatGPT Premium',
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w800,
+                      color: theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ],
               ),
             ),
             Container(
@@ -317,42 +327,54 @@ class _SettingsPageState extends State<SettingsPage> {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    theme.colorScheme.primary.withOpacity(0.1),
-                    theme.colorScheme.tertiary.withOpacity(0.1),
+                    theme.colorScheme.primary.withOpacity(0.15),
+                    theme.colorScheme.tertiary.withOpacity(0.12),
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(20),
+                borderRadius: BorderRadius.circular(24),
                 border: Border.all(
-                  color: theme.colorScheme.primary.withOpacity(0.3),
-                  width: 1.5,
+                  color: theme.colorScheme.primary.withOpacity(0.4),
+                  width: 2,
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: theme.colorScheme.primary.withOpacity(0.1),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
+                    color: theme.colorScheme.primary.withOpacity(0.2),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
                   ),
                 ],
               ),
               child: Padding(
-                padding: const EdgeInsets.all(20),
+                padding: const EdgeInsets.all(24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
                         Container(
-                          padding: const EdgeInsets.all(12),
+                          padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: theme.colorScheme.primary.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(16),
+                            gradient: LinearGradient(
+                              colors: [
+                                theme.colorScheme.primary,
+                                theme.colorScheme.tertiary,
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(18),
+                            boxShadow: [
+                              BoxShadow(
+                                color: theme.colorScheme.primary.withOpacity(0.3),
+                                blurRadius: 12,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
                           ),
                           child: Icon(
-                            Icons.workspace_premium_rounded,
-                            color: theme.colorScheme.primary,
-                            size: 24,
+                            Icons.pets_rounded,
+                            color: Colors.white,
+                            size: 28,
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -361,20 +383,22 @@ class _SettingsPageState extends State<SettingsPage> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Remove Ads',
-                                style: theme.textTheme.titleMedium?.copyWith(
-                                  fontWeight: FontWeight.w700,
+                                'CatGPT Premium',
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w800,
                                   color: theme.colorScheme.onSurface,
+                                  letterSpacing: -0.3,
                                 ),
                               ),
                               const SizedBox(height: 4),
                               // Current price only
                               Text(
-                                _noAdsProduct?.price ?? '\$1.99',
+                                _noAdsProduct?.price ?? '\$2.99',
                                 style: TextStyle(
-                                  fontSize: 24,
+                                  fontSize: 28,
                                   color: theme.colorScheme.primary,
-                                  fontWeight: FontWeight.w800,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.5,
                                 ),
                               ),
                             ],
@@ -382,14 +406,15 @@ class _SettingsPageState extends State<SettingsPage> {
                         ),
                       ],
                     ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Remove all ads and disable the "Watch ad to translate" popup',
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurface.withOpacity(0.7),
-                          height: 1.5,
-                        ),
-                      ),
+                      const SizedBox(height: 20),
+                      // Premium features list
+                      _buildFeatureItem(theme, Icons.block_rounded, 'No ads or interruptions'),
+                      const SizedBox(height: 12),
+                      _buildFeatureItem(theme, Icons.history_rounded, 'Extended history access'),
+                      const SizedBox(height: 12),
+                      _buildFeatureItem(theme, Icons.no_photography_rounded, 'No watermark on shares'),
+                      const SizedBox(height: 12),
+                      _buildFeatureItem(theme, Icons.auto_awesome_rounded, 'Premium captions (coming soon)'),
                       const SizedBox(height: 16),
                       if (_purchaseError != null) ...[
                         Container(
@@ -688,6 +713,35 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
         ),
       ),
+    );
+  }
+  
+  Widget _buildFeatureItem(ThemeData theme, IconData icon, String text) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.primary.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            icon,
+            size: 16,
+            color: theme.colorScheme.primary,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.8),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

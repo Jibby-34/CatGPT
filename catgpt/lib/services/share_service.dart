@@ -16,6 +16,7 @@ class ShareService {
     required String text,
     required BuildContext context,
     int imageWidth = 1440, // Increased from 1080 for higher resolution
+    bool isPremium = false, // Premium users get no watermark
   }) async {
     try {
       // Decode the original image
@@ -46,7 +47,8 @@ class ShareService {
       // Calculate spacing and padding based on scale
       final horizontalPadding = (80 * scale).round(); // Increased padding
       final boxPadding = (60 * scale).round().toDouble(); // Increased padding
-      final watermarkHeight = (70 * scale).round().toDouble(); // Increased watermark height
+      // No watermark for premium users - set watermark height to 0
+      final watermarkHeight = isPremium ? 0.0 : (70 * scale).round().toDouble(); // Increased watermark height
 
       // Calculate text box height - use text painter to measure
       final textStyle = TextStyle(
@@ -246,77 +248,80 @@ class ShareService {
       );
       finalTextPainter.paint(canvas, textOffset);
 
-      // Load logo asset for watermark
-      Uint8List? logoBytes;
-      try {
-        final logoData = await rootBundle.load('assets/icons/catgpt_logo.png');
-        logoBytes = logoData.buffer.asUint8List();
-      } catch (e) {
-        debugPrint('Could not load logo: $e');
-      }
+      // Only draw watermark if not premium
+      if (!isPremium) {
+        // Load logo asset for watermark
+        Uint8List? logoBytes;
+        try {
+          final logoData = await rootBundle.load('assets/icons/catgpt_logo.png');
+          logoBytes = logoData.buffer.asUint8List();
+        } catch (e) {
+          debugPrint('Could not load logo: $e');
+        }
 
-      // Decode and resize logo for watermark
-      img.Image? logoImage;
-      if (logoBytes != null) {
-        logoImage = img.decodeImage(logoBytes);
-        if (logoImage != null) {
-          logoImage = img.copyResize(logoImage, width: finalLogoSize, height: finalLogoSize);
-          
-          // Recolor logo: set all non-transparent pixels to white, preserve alpha
-          for (int y = 0; y < logoImage.height; y++) {
-            for (int x = 0; x < logoImage.width; x++) {
-              final pixel = logoImage.getPixel(x, y);
-              // If the pixel is not fully transparent (alpha > 0)
-              if (pixel.a > 0) {
-                logoImage.setPixel(x, y, img.ColorRgba8(255, 255, 255, pixel.a.toInt()));
+        // Decode and resize logo for watermark
+        img.Image? logoImage;
+        if (logoBytes != null) {
+          logoImage = img.decodeImage(logoBytes);
+          if (logoImage != null) {
+            logoImage = img.copyResize(logoImage, width: finalLogoSize, height: finalLogoSize);
+            
+            // Recolor logo: set all non-transparent pixels to white, preserve alpha
+            for (int y = 0; y < logoImage.height; y++) {
+              for (int x = 0; x < logoImage.width; x++) {
+                final pixel = logoImage.getPixel(x, y);
+                // If the pixel is not fully transparent (alpha > 0)
+                if (pixel.a > 0) {
+                  logoImage.setPixel(x, y, img.ColorRgba8(255, 255, 255, pixel.a.toInt()));
+                }
               }
             }
           }
         }
-      }
 
-      // Draw watermark in bottom left of the box
-      // Ensure logo is not cropped - position it with adequate padding
-      final logoPadding = (40 * finalScale).round();
-      final watermarkY = boxY + finalBoxHeight - adjustedWatermarkHeight + (adjustedWatermarkHeight - finalLogoSize) / 2;
-      
-      if (logoImage != null) {
-        final logoUiImage = await _imgImageToUiImage(logoImage);
-        if (logoUiImage != null) {
-          // Ensure logo is positioned within bounds and not cropped
-          final logoX = logoPadding.toDouble();
-          final logoY = watermarkY;
-          
-          // Verify logo fits within image bounds
-          if (logoX + finalLogoSize <= finalWidth && logoY + finalLogoSize <= adjustedTotalHeight) {
-            canvas.drawImage(logoUiImage, Offset(logoX, logoY), paint);
+        // Draw watermark in bottom left of the box
+        // Ensure logo is not cropped - position it with adequate padding
+        final logoPadding = (40 * finalScale).round();
+        final watermarkY = boxY + finalBoxHeight - adjustedWatermarkHeight + (adjustedWatermarkHeight - finalLogoSize) / 2;
+        
+        if (logoImage != null) {
+          final logoUiImage = await _imgImageToUiImage(logoImage);
+          if (logoUiImage != null) {
+            // Ensure logo is positioned within bounds and not cropped
+            final logoX = logoPadding.toDouble();
+            final logoY = watermarkY;
+            
+            // Verify logo fits within image bounds
+            if (logoX + finalLogoSize <= finalWidth && logoY + finalLogoSize <= adjustedTotalHeight) {
+              canvas.drawImage(logoUiImage, Offset(logoX, logoY), paint);
+            }
+            logoUiImage.dispose();
           }
-          logoUiImage.dispose();
         }
-      }
 
-      // Draw watermark text next to logo
-      final watermarkStyle = TextStyle(
-        color: Colors.white.withOpacity(0.9), // Slightly increased opacity
-        fontSize: finalWatermarkFontSize,
-        fontWeight: FontWeight.w600, // Increased from w500
-        letterSpacing: 0.3,
-      );
-      final watermarkSpan = TextSpan(text: 'Generated with CatGPT', style: watermarkStyle);
-      final watermarkPainter = TextPainter(
-        text: watermarkSpan,
-        textDirection: TextDirection.ltr,
-      );
-      watermarkPainter.layout();
-      
-      // Position text next to logo, vertically centered with logo
-      final textSpacing = (10 * finalScale).round();
-      final textX = logoPadding + finalLogoSize + textSpacing;
-      // Ensure text fits within image bounds
-      if (textX + watermarkPainter.width <= finalWidth) {
-        final textY = watermarkY + (finalLogoSize - watermarkPainter.height) / 2;
-        final watermarkOffset = Offset(textX.toDouble(), textY);
-        watermarkPainter.paint(canvas, watermarkOffset);
+        // Draw watermark text next to logo
+        final watermarkStyle = TextStyle(
+          color: Colors.white.withOpacity(0.9), // Slightly increased opacity
+          fontSize: finalWatermarkFontSize,
+          fontWeight: FontWeight.w600, // Increased from w500
+          letterSpacing: 0.3,
+        );
+        final watermarkSpan = TextSpan(text: 'Generated with CatGPT', style: watermarkStyle);
+        final watermarkPainter = TextPainter(
+          text: watermarkSpan,
+          textDirection: TextDirection.ltr,
+        );
+        watermarkPainter.layout();
+        
+        // Position text next to logo, vertically centered with logo
+        final textSpacing = (10 * finalScale).round();
+        final textX = logoPadding + finalLogoSize + textSpacing;
+        // Ensure text fits within image bounds
+        if (textX + watermarkPainter.width <= finalWidth) {
+          final textY = watermarkY + (finalLogoSize - watermarkPainter.height) / 2;
+          final watermarkOffset = Offset(textX.toDouble(), textY);
+          watermarkPainter.paint(canvas, watermarkOffset);
+        }
       }
 
       // Convert picture to image
@@ -422,12 +427,14 @@ class ShareService {
     required Uint8List imageBytes,
     required String text,
     required BuildContext context,
+    bool isPremium = false,
   }) async {
     try {
       final filePath = await createInstagramStyleImage(
         imageBytes: imageBytes,
         text: text,
         context: context,
+        isPremium: isPremium,
       );
 
       if (filePath != null) {

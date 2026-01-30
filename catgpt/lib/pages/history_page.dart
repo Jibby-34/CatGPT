@@ -8,6 +8,8 @@ class HistoryPage extends StatefulWidget {
   final Set<int> favorites;
   final Function(int) onDeleteEntry;
   final Function(int) onToggleFavorite;
+  final bool isPremium;
+  final VoidCallback onPurchasePremium;
 
   const HistoryPage({
     super.key,
@@ -16,6 +18,8 @@ class HistoryPage extends StatefulWidget {
     required this.favorites,
     required this.onDeleteEntry,
     required this.onToggleFavorite,
+    required this.isPremium,
+    required this.onPurchasePremium,
   });
 
   @override
@@ -72,11 +76,27 @@ class _HistoryPageState extends State<HistoryPage> {
     if (_filterMode == 'Favorites') {
       // Return indices that are in favorites, in reverse order (newest first)
       final favoriteIndices = widget.favorites.toList()..sort((a, b) => b.compareTo(a));
-      return favoriteIndices.where((idx) => idx >= 0 && idx < widget.translationHistory.length).toList();
+      var indices = favoriteIndices.where((idx) => idx >= 0 && idx < widget.translationHistory.length).toList();
+      // For free users, limit to last 3 favorites
+      if (!widget.isPremium && indices.length > 3) {
+        indices = indices.take(3).toList();
+      }
+      return indices;
     } else {
       // Return all indices in reverse order
-      return List.generate(widget.translationHistory.length, (i) => widget.translationHistory.length - 1 - i);
+      var indices = List.generate(widget.translationHistory.length, (i) => widget.translationHistory.length - 1 - i);
+      // For free users, limit to last 3 translations
+      if (!widget.isPremium && indices.length > 3) {
+        indices = indices.take(3).toList();
+      }
+      return indices;
     }
+  }
+  
+  int _getHiddenCount() {
+    if (widget.isPremium) return 0;
+    final total = _filterMode == 'Favorites' ? widget.favorites.length : widget.translationHistory.length;
+    return total > 3 ? total - 3 : 0;
   }
 
   @override
@@ -173,17 +193,21 @@ class _HistoryPageState extends State<HistoryPage> {
                 child: ListView.builder(
                   controller: _scrollController,
                   physics: const BouncingScrollPhysics(),
-                  itemCount: filteredIndices.length,
+                  itemCount: filteredIndices.length + (_getHiddenCount() > 0 ? 1 : 0), // Add 1 for premium prompt if needed
                   itemBuilder: (context, index) {
+                    final theme = Theme.of(context);
+                    final isDark = theme.brightness == Brightness.dark;
+                    
+                    // Show premium prompt at the end if there are hidden items
+                    if (index == filteredIndices.length && _getHiddenCount() > 0) {
+                      return _buildPremiumPrompt(context, theme, isDark);
+                    }
                     final reverseIndex = filteredIndices[index];
 
                     final safeImageIndex = reverseIndex < widget.imageHistory.length ? reverseIndex : -1;
 
                     final translation = widget.translationHistory[reverseIndex];
                     final imageBytes = safeImageIndex >= 0 ? widget.imageHistory[safeImageIndex] : null;
-
-                    final theme = Theme.of(context);
-                    final isDark = theme.brightness == Brightness.dark;
                     
                     return GestureDetector(
                       onTap: () => _showDetail(context, translation, imageBytes),
@@ -598,6 +622,7 @@ class _HistoryPageState extends State<HistoryPage> {
                                       imageBytes: image,
                                       text: translation,
                                       context: context,
+                                      isPremium: widget.isPremium,
                                     );
                                   } catch (e) {
                                     if (context.mounted) {
@@ -656,6 +681,142 @@ class _HistoryPageState extends State<HistoryPage> {
                   ],
                 ),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Widget _buildPremiumPrompt(BuildContext context, ThemeData theme, bool isDark) {
+    final hiddenCount = _getHiddenCount();
+    
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20, top: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.primary.withOpacity(0.15),
+            theme.colorScheme.tertiary.withOpacity(0.1),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: theme.colorScheme.primary.withOpacity(0.3),
+          width: 2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(0.15),
+            blurRadius: 16,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onPurchasePremium,
+          borderRadius: BorderRadius.circular(24),
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                // Paw icon
+                Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        theme.colorScheme.primary,
+                        theme.colorScheme.tertiary,
+                      ],
+                    ),
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(
+                    Icons.pets_rounded,
+                    size: 32,
+                    color: Colors.white,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Unlock Full History',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: theme.colorScheme.onSurface,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'You have $hiddenCount more translation${hiddenCount == 1 ? '' : 's'} saved',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                    fontWeight: FontWeight.w500,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 16),
+                Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        theme.colorScheme.primary,
+                        theme.colorScheme.tertiary,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(16),
+                    boxShadow: [
+                      BoxShadow(
+                        color: theme.colorScheme.primary.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: ElevatedButton.icon(
+                    onPressed: widget.onPurchasePremium,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    icon: const Icon(Icons.pets_rounded, size: 20),
+                    label: const Text(
+                      'Get CatGPT Premium',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 16,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Extended history • No watermarks • Premium captions',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.6),
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
         ),
