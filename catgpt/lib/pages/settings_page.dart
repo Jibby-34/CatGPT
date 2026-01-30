@@ -233,73 +233,6 @@ class _SettingsPageState extends State<SettingsPage> {
           padding: const EdgeInsets.all(20),
           children: [
             const SizedBox(height: 8),
-            // Tutorial Section
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 12),
-              child: Text(
-                'Help & Support',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-            ),
-            _buildModernCard(
-              context,
-              theme: theme,
-              isDark: isDark,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const TutorialPage(),
-                  ),
-                );
-              },
-              icon: Icons.school_rounded,
-              iconColor: theme.colorScheme.primary,
-              title: 'Tutorial',
-              subtitle: 'Learn how to use CatGPT',
-              trailing: Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 16,
-                color: theme.colorScheme.onSurface.withOpacity(0.4),
-              ),
-            ),
-            const SizedBox(height: 32),
-            // Appearance Section
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 12),
-              child: Text(
-                'Appearance',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-            ),
-            _buildModernCard(
-              context,
-              theme: theme,
-              isDark: isDark,
-              onTap: null,
-              icon: _isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
-              iconColor: theme.colorScheme.primary,
-              title: 'Dark Mode',
-              subtitle: _isDarkMode
-                  ? 'Switch to light mode'
-                  : 'Switch to dark mode',
-              trailing: Switch(
-                value: _isDarkMode,
-                onChanged: (value) async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setBool('isDarkMode', value);
-                  setState(() => _isDarkMode = value);
-                  widget.onThemeChanged(value);
-                },
-              ),
-            ),
-            const SizedBox(height: 32),
             // Premium Section
             if (!_adsRemoved) ...[
               Padding(
@@ -533,6 +466,73 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const SizedBox(height: 32),
             ],
+            // Help & Support Section
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 12),
+              child: Text(
+                'Help & Support',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+            _buildModernCard(
+              context,
+              theme: theme,
+              isDark: isDark,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TutorialPage(),
+                  ),
+                );
+              },
+              icon: Icons.school_rounded,
+              iconColor: theme.colorScheme.primary,
+              title: 'Tutorial',
+              subtitle: 'Learn how to use CatGPT',
+              trailing: Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: theme.colorScheme.onSurface.withOpacity(0.4),
+              ),
+            ),
+            const SizedBox(height: 32),
+            // Appearance Section
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 12),
+              child: Text(
+                'Appearance',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+            _buildModernCard(
+              context,
+              theme: theme,
+              isDark: isDark,
+              onTap: null,
+              icon: _isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+              iconColor: theme.colorScheme.primary,
+              title: 'Dark Mode',
+              subtitle: _isDarkMode
+                  ? 'Switch to light mode'
+                  : 'Switch to dark mode',
+              trailing: Switch(
+                value: _isDarkMode,
+                onChanged: (value) async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('isDarkMode', value);
+                  setState(() => _isDarkMode = value);
+                  widget.onThemeChanged(value);
+                },
+              ),
+            ),
+            const SizedBox(height: 32),
             // Data Section
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 12),

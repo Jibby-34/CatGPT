@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'pages/home_page.dart';
+import 'pages/onboarding_page.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,16 +17,25 @@ Future<void> main() async {
   // Initialize Google Mobile Ads SDK
   await MobileAds.instance.initialize();
 
-  // Load saved theme mode before app starts
+  // Load saved theme mode and onboarding status before app starts
   final prefs = await SharedPreferences.getInstance();
   final isDarkMode = prefs.getBool('isDarkMode') ?? true;
+  final onboardingCompleted = prefs.getBool('onboardingCompleted') ?? false;
 
-  runApp(CatTranslatorApp(isDarkMode: isDarkMode));
+  runApp(CatTranslatorApp(
+    isDarkMode: isDarkMode,
+    onboardingCompleted: onboardingCompleted,
+  ));
 }
 
 class CatTranslatorApp extends StatefulWidget {
   final bool isDarkMode;
-  const CatTranslatorApp({super.key, required this.isDarkMode});
+  final bool onboardingCompleted;
+  const CatTranslatorApp({
+    super.key,
+    required this.isDarkMode,
+    required this.onboardingCompleted,
+  });
 
   @override
   State<CatTranslatorApp> createState() => _CatTranslatorAppState();
@@ -33,17 +43,23 @@ class CatTranslatorApp extends StatefulWidget {
 
 class _CatTranslatorAppState extends State<CatTranslatorApp> {
   late bool _isDarkMode;
+  late bool _onboardingCompleted;
 
   @override
   void initState() {
     super.initState();
     _isDarkMode = widget.isDarkMode;
+    _onboardingCompleted = widget.onboardingCompleted;
   }
 
   void _toggleTheme(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('isDarkMode', value);
     setState(() => _isDarkMode = value);
+  }
+
+  void _completeOnboarding() {
+    setState(() => _onboardingCompleted = true);
   }
 
   @override
@@ -170,10 +186,14 @@ class _CatTranslatorAppState extends State<CatTranslatorApp> {
           bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w400, letterSpacing: 0.1),
         ),
       ),
-      home: HomePage(
-        isDarkMode: _isDarkMode,
-        onThemeChanged: _toggleTheme,
-      ),
+      home: _onboardingCompleted
+          ? HomePage(
+              isDarkMode: _isDarkMode,
+              onThemeChanged: _toggleTheme,
+            )
+          : OnboardingPage(
+              onComplete: _completeOnboarding,
+            ),
     );
   }
 }

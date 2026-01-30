@@ -34,6 +34,10 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icons/catgpt_logo.png
+    - assets/onboarding/screenshot_camera.png
+    - assets/onboarding/screenshot_translation.png
+    - assets/onboarding/screenshot_history.png
+    - assets/onboarding/screenshot_premium.png
 
 flutter_launcher_icons:
   android: true
