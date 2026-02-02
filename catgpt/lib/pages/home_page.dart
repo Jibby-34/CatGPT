@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:CatGPT/widgets/catgpt_logo.dart';
 import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -843,19 +844,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         }
 
         setState(() => _outputText = text);
+        
+        // Trigger haptic feedback when translation appears
+        HapticFeedback.mediumImpact();
 
         if (!text.contains('No cat detected!')) {
           // Cat detected - this is a successful translation
-          // Check if popup should be shown BEFORE adding to history
-          final shouldShowPopup = _shouldShowPurchasePopup();
-          
-          if (shouldShowPopup) {
-            // Show popup and wait for user response before adding to history
-            final userPurchased = await _showRemoveAdsPopup();
-            
-            // If user clicked "Maybe later", just proceed without showing ad
-            // If user purchased, _buyNoAds() was already called, proceed with adding to history
-          }
+          // Popup removed per user request
           
           // Reset the consecutive no-cat count
           _consecutiveNoCatCount = 0;

@@ -5,7 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
-import 'tutorial_page.dart';
 import '../constants/purchase_constants.dart';
 
 class SettingsPage extends StatefulWidget {
@@ -347,7 +346,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       const SizedBox(height: 12),
                       _buildFeatureItem(theme, Icons.no_photography_rounded, 'No watermark on shares'),
                       const SizedBox(height: 12),
-                      _buildFeatureItem(theme, Icons.auto_awesome_rounded, 'Premium captions (coming soon)'),
+                      _buildFeatureItem(theme, Icons.auto_awesome_rounded, 'Support indie developers!'),
                       const SizedBox(height: 16),
                       if (_purchaseError != null) ...[
                         Container(
@@ -466,40 +465,6 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const SizedBox(height: 32),
             ],
-            // Help & Support Section
-            Padding(
-              padding: const EdgeInsets.only(left: 4, bottom: 12),
-              child: Text(
-                'Help & Support',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.onSurface,
-                ),
-              ),
-            ),
-            _buildModernCard(
-              context,
-              theme: theme,
-              isDark: isDark,
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const TutorialPage(),
-                  ),
-                );
-              },
-              icon: Icons.school_rounded,
-              iconColor: theme.colorScheme.primary,
-              title: 'Tutorial',
-              subtitle: 'Learn how to use CatGPT',
-              trailing: Icon(
-                Icons.arrow_forward_ios_rounded,
-                size: 16,
-                color: theme.colorScheme.onSurface.withOpacity(0.4),
-              ),
-            ),
-            const SizedBox(height: 32),
             // Appearance Section
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 12),
