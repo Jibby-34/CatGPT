@@ -260,9 +260,9 @@ class _OnboardingPageState extends State<OnboardingPage> {
         children: [
           // Premium image with special styling (made smaller)
           Container(
-            height: screenHeight * 0.25, // Reduced from 0.35 to fit without scrolling
+            height: screenHeight * 0.22, // Reduced from 0.25 for smaller screens
             width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 24), // Reduced from 32
+            margin: const EdgeInsets.only(bottom: 20), // Reduced from 24
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   begin: Alignment.topLeft,
@@ -388,11 +388,11 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
             ],
           ),
-          const SizedBox(height: 16), // Reduced from 20
+          const SizedBox(height: 12), // Reduced from 16
 
           // Premium features
           Container(
-            padding: const EdgeInsets.all(16), // Reduced from 18
+            padding: const EdgeInsets.all(14), // Reduced from 16
             decoration: BoxDecoration(
               color: isDark
                   ? theme.colorScheme.surface
@@ -410,19 +410,19 @@ class _OnboardingPageState extends State<OnboardingPage> {
                   icon: Icons.history_rounded,
                   text: 'Unlimited translation history',
                 ),
-                const SizedBox(height: 8), // Reduced from 10
+                const SizedBox(height: 6), // Reduced from 8
                 _buildFeatureRow(
                   theme: theme,
                   icon: Icons.no_photography_rounded,
                   text: 'No watermarks on shares',
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 _buildFeatureRow(
                   theme: theme,
                   icon: Icons.block_rounded,
                   text: 'Ad-free experience',
                 ),
-                const SizedBox(height: 8),
+                const SizedBox(height: 6),
                 _buildFeatureRow(
                   theme: theme,
                   icon: Icons.favorite_rounded,
@@ -431,7 +431,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ],
             ),
           ),
-          const SizedBox(height: 16), // Reduced from 20
+          const SizedBox(height: 14), // Reduced from 16
 
           // Purchase button
           Container(
@@ -497,7 +497,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
               ),
             ),
           ),
-          const SizedBox(height: 12), // Reduced from 16
+          const SizedBox(height: 8), // Reduced from 12
 
           // Restore purchases button
           TextButton(

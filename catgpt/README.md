@@ -1,3 +1,3 @@
-# catspeak
+# CatGPT
 
-A new Flutter project.
+A cat translator app for Apple and Android
