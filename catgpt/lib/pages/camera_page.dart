@@ -13,6 +13,7 @@ class CameraPage extends StatefulWidget {
   final Future<void> Function() onSelectImage;
   final VoidCallback onReset;
   final Future<void> Function(Uint8List) evaluateImage;
+  final bool isPremium;
 
   const CameraPage({
     super.key,
@@ -22,6 +23,7 @@ class CameraPage extends StatefulWidget {
     required this.onSelectImage,
     required this.onReset,
     required this.evaluateImage,
+    required this.isPremium,
   });
 
   @override
@@ -629,6 +631,7 @@ class CameraPageState extends State<CameraPage> with WidgetsBindingObserver {
                                     imageBytes: widget.pickedImageBytes!,
                                     text: widget.outputText!,
                                     context: context,
+                                    isPremium: widget.isPremium,
                                   );
                                 } catch (e) {
                                   if (mounted) {

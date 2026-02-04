@@ -167,13 +167,14 @@ class ShareService {
       final finalLogoSize = (64 * finalScale).round().clamp(48, 96); // Much larger logo
       final finalHorizontalPadding = (80 * finalScale).round();
       final finalBoxPadding = (60 * finalScale).round().toDouble();
-      final finalWatermarkHeight = (70 * finalScale).round().toDouble();
+      // No watermark height for premium users
+      final finalWatermarkHeight = isPremium ? 0.0 : (70 * finalScale).round().toDouble();
       
-      // Ensure watermark has enough space - adjust watermarkHeight if needed
+      // Ensure watermark has enough space - adjust watermarkHeight if needed (only for non-premium)
       final minWatermarkHeight = finalLogoSize + 10; // Logo + padding
-      final adjustedWatermarkHeight = finalWatermarkHeight > minWatermarkHeight 
+      final adjustedWatermarkHeight = isPremium ? 0.0 : (finalWatermarkHeight > minWatermarkHeight 
           ? finalWatermarkHeight 
-          : minWatermarkHeight.toDouble();
+          : minWatermarkHeight.toDouble());
 
       // Recalculate box with final dimensions
       final finalTextStyle = TextStyle(

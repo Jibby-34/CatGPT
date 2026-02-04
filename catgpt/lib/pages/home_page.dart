@@ -274,18 +274,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     // kDebugMode is automatically true when running 'flutter run' or in debug builds
     // kDebugMode is automatically false when running 'flutter run --release' or in release builds
     String adUnitId;
-    if (kDebugMode) {
-      adUnitId = 'ca-app-pub-3940256099942544/5224354917'; // Google test rewarded ad unit ID
+    // Test build - using test ad unit IDs only
+    // Production Android ID was: ca-app-pub-6637557002473159/5599342776
+    // Production iOS ID was: ca-app-pub-6637557002473159/2893288388
+    if (Platform.isAndroid) {
+      adUnitId = 'ca-app-pub-3940256099942544/5224354917'; // Test rewarded ad unit ID for Android
+    } else if (Platform.isIOS) {
+      adUnitId = 'ca-app-pub-3940256099942544/1712485313'; // Test rewarded ad unit ID for iOS
     } else {
-      // Check platform and use appropriate ad unit ID
-      if (Platform.isAndroid) {
-        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-6637557002473159/5599342776');
-      } else if (Platform.isIOS) {
-        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-6637557002473159/2893288388');
-      } else {
-        // Fallback for other platforms
-        adUnitId = const String.fromEnvironment('ADMOB_REWARDED_ID', defaultValue: 'ca-app-pub-6637557002473159/5599342776');
-      }
+      // Fallback for other platforms
+      adUnitId = 'ca-app-pub-3940256099942544/5224354917'; // Test rewarded ad unit ID
     }
     
     debugPrint('Loading rewarded ad in ${kDebugMode ? "DEBUG" : "RELEASE"} mode on ${Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "Unknown"} with ID: $adUnitId');
@@ -1090,6 +1088,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         onSelectImage: _onSelectImageAndTranslate,
         onReset: _resetCameraState,
         evaluateImage: (bytes) => evaluateImage(bytes),
+        isPremium: _adsRemoved,
       );
     } else {
       // Other tabs: render as before
