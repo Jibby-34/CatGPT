@@ -19,21 +19,36 @@ Future<void> main() async {
 
   // Load saved theme mode and onboarding status before app starts
   final prefs = await SharedPreferences.getInstance();
-  final isDarkMode = prefs.getBool('isDarkMode') ?? true;
+  
+  // Migrate from old boolean isDarkMode to new string themeMode
+  String themeMode;
+  if (prefs.containsKey('themeMode')) {
+    themeMode = prefs.getString('themeMode') ?? 'system';
+  } else if (prefs.containsKey('isDarkMode')) {
+    // Migrate old boolean preference to new string preference
+    final oldIsDarkMode = prefs.getBool('isDarkMode') ?? false;
+    themeMode = oldIsDarkMode ? 'dark' : 'light';
+    await prefs.setString('themeMode', themeMode);
+    await prefs.remove('isDarkMode');
+  } else {
+    // Default to system for new users
+    themeMode = 'system';
+  }
+  
   final onboardingCompleted = prefs.getBool('onboardingCompleted') ?? false;
 
   runApp(CatTranslatorApp(
-    isDarkMode: isDarkMode,
+    themeMode: themeMode,
     onboardingCompleted: onboardingCompleted,
   ));
 }
 
 class CatTranslatorApp extends StatefulWidget {
-  final bool isDarkMode;
+  final String themeMode;
   final bool onboardingCompleted;
   const CatTranslatorApp({
     super.key,
-    required this.isDarkMode,
+    required this.themeMode,
     required this.onboardingCompleted,
   });
 
@@ -42,20 +57,20 @@ class CatTranslatorApp extends StatefulWidget {
 }
 
 class _CatTranslatorAppState extends State<CatTranslatorApp> {
-  late bool _isDarkMode;
+  late String _themeMode;
   late bool _onboardingCompleted;
 
   @override
   void initState() {
     super.initState();
-    _isDarkMode = widget.isDarkMode;
+    _themeMode = widget.themeMode;
     _onboardingCompleted = widget.onboardingCompleted;
   }
 
-  void _toggleTheme(bool value) async {
+  void _changeTheme(String mode) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('isDarkMode', value);
-    setState(() => _isDarkMode = value);
+    await prefs.setString('themeMode', mode);
+    setState(() => _themeMode = mode);
   }
 
   void _completeOnboarding() {
@@ -69,7 +84,9 @@ class _CatTranslatorAppState extends State<CatTranslatorApp> {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'CatGPT',
-      themeMode: _isDarkMode ? ThemeMode.dark : ThemeMode.light,
+      themeMode: _themeMode == 'system' 
+          ? ThemeMode.system 
+          : (_themeMode == 'dark' ? ThemeMode.dark : ThemeMode.light),
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(
@@ -188,8 +205,8 @@ class _CatTranslatorAppState extends State<CatTranslatorApp> {
       ),
       home: _onboardingCompleted
           ? HomePage(
-              isDarkMode: _isDarkMode,
-              onThemeChanged: _toggleTheme,
+              themeMode: _themeMode,
+              onThemeChanged: _changeTheme,
             )
           : OnboardingPage(
               onComplete: _completeOnboarding,

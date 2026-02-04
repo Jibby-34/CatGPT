@@ -77,17 +77,17 @@ class _HistoryPageState extends State<HistoryPage> {
       // Return indices that are in favorites, in reverse order (newest first)
       final favoriteIndices = widget.favorites.toList()..sort((a, b) => b.compareTo(a));
       var indices = favoriteIndices.where((idx) => idx >= 0 && idx < widget.translationHistory.length).toList();
-      // For free users, limit to last 3 favorites
-      if (!widget.isPremium && indices.length > 3) {
-        indices = indices.take(3).toList();
+      // For free users, limit to last 5 favorites
+      if (!widget.isPremium && indices.length > 5) {
+        indices = indices.take(5).toList();
       }
       return indices;
     } else {
       // Return all indices in reverse order
       var indices = List.generate(widget.translationHistory.length, (i) => widget.translationHistory.length - 1 - i);
-      // For free users, limit to last 3 translations
-      if (!widget.isPremium && indices.length > 3) {
-        indices = indices.take(3).toList();
+      // For free users, limit to last 5 translations
+      if (!widget.isPremium && indices.length > 5) {
+        indices = indices.take(5).toList();
       }
       return indices;
     }
@@ -96,7 +96,7 @@ class _HistoryPageState extends State<HistoryPage> {
   int _getHiddenCount() {
     if (widget.isPremium) return 0;
     final total = _filterMode == 'Favorites' ? widget.favorites.length : widget.translationHistory.length;
-    return total > 3 ? total - 3 : 0;
+    return total > 5 ? total - 5 : 0;
   }
 
   @override

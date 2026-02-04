@@ -19,12 +19,12 @@ import 'camera_page.dart';
 import '../services/share_service.dart';
 
 class HomePage extends StatefulWidget {
-  final bool isDarkMode;
-  final Function(bool) onThemeChanged;
+  final String themeMode;
+  final Function(String) onThemeChanged;
   
   const HomePage({
     super.key,
-    required this.isDarkMode,
+    required this.themeMode,
     required this.onThemeChanged,
   });
 
@@ -844,7 +844,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         setState(() => _outputText = text);
         
         // Trigger haptic feedback when translation appears
-        HapticFeedback.mediumImpact();
+        HapticFeedback.heavyImpact();
 
         if (!text.contains('No cat detected!')) {
           // Cat detected - this is a successful translation
@@ -913,7 +913,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                  CatGptLogo(size: 28, isDark: widget.isDarkMode),
+                  CatGptLogo(size: 28, isDark: theme.brightness == Brightness.dark),
                   const SizedBox(width: 10),
                   Text(
                     'CatGPT',
@@ -971,7 +971,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 context,
                 MaterialPageRoute(
                   builder: (context) => SettingsPage(
-                    isDarkMode: widget.isDarkMode,
+                    themeMode: widget.themeMode,
                     onThemeChanged: widget.onThemeChanged,
                     onClearHistory: _clearHistory,
                     adsRemoved: _adsRemoved,
@@ -1112,7 +1112,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   context,
                   MaterialPageRoute(
                     builder: (context) => SettingsPage(
-                      isDarkMode: widget.isDarkMode,
+                      themeMode: widget.themeMode,
                       onThemeChanged: widget.onThemeChanged,
                       onClearHistory: _clearHistory,
                       adsRemoved: _adsRemoved,
@@ -1134,7 +1134,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   context,
                   MaterialPageRoute(
                     builder: (context) => SettingsPage(
-                      isDarkMode: widget.isDarkMode,
+                      themeMode: widget.themeMode,
                       onThemeChanged: widget.onThemeChanged,
                       onClearHistory: _clearHistory,
                       adsRemoved: _adsRemoved,

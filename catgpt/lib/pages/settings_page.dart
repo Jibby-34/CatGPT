@@ -8,15 +8,15 @@ import 'package:in_app_purchase/in_app_purchase.dart';
 import '../constants/purchase_constants.dart';
 
 class SettingsPage extends StatefulWidget {
-  final bool isDarkMode;
-  final Function(bool) onThemeChanged;
+  final String themeMode;
+  final Function(String) onThemeChanged;
   final VoidCallback onClearHistory;
   final bool adsRemoved;
   final ValueChanged<bool> onAdsStatusChanged;
 
   const SettingsPage({
     super.key,
-    required this.isDarkMode,
+    required this.themeMode,
     required this.onThemeChanged,
     required this.onClearHistory,
     required this.adsRemoved,
@@ -28,7 +28,7 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  late bool _isDarkMode;
+  late String _themeMode;
   late bool _adsRemoved;
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
@@ -41,7 +41,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    _isDarkMode = widget.isDarkMode;
+    _themeMode = widget.themeMode;
     _adsRemoved = widget.adsRemoved;
     _subscription = _inAppPurchase.purchaseStream.listen(
       _onPurchaseUpdated,
@@ -58,9 +58,9 @@ class _SettingsPageState extends State<SettingsPage> {
         _adsRemoved = widget.adsRemoved;
       });
     }
-    if (oldWidget.isDarkMode != widget.isDarkMode) {
+    if (oldWidget.themeMode != widget.themeMode) {
       setState(() {
-        _isDarkMode = widget.isDarkMode;
+        _themeMode = widget.themeMode;
       });
     }
   }
@@ -481,20 +481,60 @@ class _SettingsPageState extends State<SettingsPage> {
               theme: theme,
               isDark: isDark,
               onTap: null,
-              icon: _isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
+              icon: _themeMode == 'dark' 
+                  ? Icons.dark_mode_rounded 
+                  : (_themeMode == 'light' ? Icons.light_mode_rounded : Icons.brightness_auto_rounded),
               iconColor: theme.colorScheme.primary,
-              title: 'Dark Mode',
-              subtitle: _isDarkMode
-                  ? 'Switch to light mode'
-                  : 'Switch to dark mode',
-              trailing: Switch(
-                value: _isDarkMode,
-                onChanged: (value) async {
-                  final prefs = await SharedPreferences.getInstance();
-                  await prefs.setBool('isDarkMode', value);
-                  setState(() => _isDarkMode = value);
-                  widget.onThemeChanged(value);
-                },
+              title: 'Theme',
+              subtitle: _themeMode == 'system' 
+                  ? 'Following system settings'
+                  : (_themeMode == 'dark' ? 'Dark mode' : 'Light mode'),
+              trailing: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: theme.colorScheme.primary.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                child: DropdownButton<String>(
+                  value: _themeMode,
+                  underline: const SizedBox(),
+                  isDense: true,
+                  icon: Icon(
+                    Icons.arrow_drop_down_rounded,
+                    color: theme.colorScheme.primary,
+                  ),
+                  dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: theme.colorScheme.primary,
+                  ),
+                  items: const [
+                    DropdownMenuItem(
+                      value: 'system',
+                      child: Text('System'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'light',
+                      child: Text('Light'),
+                    ),
+                    DropdownMenuItem(
+                      value: 'dark',
+                      child: Text('Dark'),
+                    ),
+                  ],
+                  onChanged: (value) async {
+                    if (value != null) {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setString('themeMode', value);
+                      setState(() => _themeMode = value);
+                      widget.onThemeChanged(value);
+                    }
+                  },
+                ),
               ),
             ),
             const SizedBox(height: 32),
