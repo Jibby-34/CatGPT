@@ -202,26 +202,45 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
   void _onPurchaseUpdated(List<PurchaseDetails> purchases) {
     bool foundNoAdsPurchase = false;
+    bool foundLegacyRemoveAds = false;
     
     for (final purchase in purchases) {
-      if (purchase.productID != noAdsProductId) continue;
-
-      switch (purchase.status) {
-        case PurchaseStatus.purchased:
-        case PurchaseStatus.restored:
-          foundNoAdsPurchase = true;
-          debugPrint('No Ads purchase verified: ${purchase.status}');
-          if (purchase.pendingCompletePurchase) {
-            _inAppPurchase.completePurchase(purchase);
-          }
-          break;
-        default:
-          break;
+      // Check for current premium product
+      if (purchase.productID == noAdsProductId) {
+        switch (purchase.status) {
+          case PurchaseStatus.purchased:
+          case PurchaseStatus.restored:
+            foundNoAdsPurchase = true;
+            debugPrint('Premium purchase verified: ${purchase.status}');
+            if (purchase.pendingCompletePurchase) {
+              _inAppPurchase.completePurchase(purchase);
+            }
+            break;
+          default:
+            break;
+        }
+      }
+      
+      // Check for legacy remove ads product
+      if (purchase.productID == legacyRemoveAdsProductId) {
+        switch (purchase.status) {
+          case PurchaseStatus.purchased:
+          case PurchaseStatus.restored:
+            foundLegacyRemoveAds = true;
+            debugPrint('Legacy remove ads purchase detected: ${purchase.status}');
+            debugPrint('Automatically granting premium access to legacy user');
+            if (purchase.pendingCompletePurchase) {
+              _inAppPurchase.completePurchase(purchase);
+            }
+            break;
+          default:
+            break;
+        }
       }
     }
 
-    // Only set ads removed if store confirms the purchase
-    if (foundNoAdsPurchase) {
+    // Grant premium if either current or legacy purchase is found
+    if (foundNoAdsPurchase || foundLegacyRemoveAds) {
       if (!_adsRemoved) {
         debugPrint('Setting ads removed to true based on store confirmation');
         _updateAdsRemoved(true);

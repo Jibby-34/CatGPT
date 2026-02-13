@@ -156,34 +156,52 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _onPurchaseUpdated(List<PurchaseDetails> purchases) {
     for (final purchase in purchases) {
-      if (purchase.productID != noAdsProductId) continue;
+      // Check for current premium product
+      if (purchase.productID == noAdsProductId) {
+        switch (purchase.status) {
+          case PurchaseStatus.purchased:
+          case PurchaseStatus.restored:
+            _markNoAdsPurchased();
+            break;
+          case PurchaseStatus.pending:
+            setState(() => _purchasePending = true);
+            break;
+          case PurchaseStatus.canceled:
+            setState(() {
+              _purchasePending = false;
+              _purchaseError = 'Purchase canceled';
+            });
+            break;
+          case PurchaseStatus.error:
+            setState(() {
+              _purchasePending = false;
+              _purchaseError = purchase.error?.message ?? 'Purchase failed';
+            });
+            break;
+          default:
+            break;
+        }
 
-      switch (purchase.status) {
-        case PurchaseStatus.purchased:
-        case PurchaseStatus.restored:
-          _markNoAdsPurchased();
-          break;
-        case PurchaseStatus.pending:
-          setState(() => _purchasePending = true);
-          break;
-        case PurchaseStatus.canceled:
-          setState(() {
-            _purchasePending = false;
-            _purchaseError = 'Purchase canceled';
-          });
-          break;
-        case PurchaseStatus.error:
-          setState(() {
-            _purchasePending = false;
-            _purchaseError = purchase.error?.message ?? 'Purchase failed';
-          });
-          break;
-        default:
-          break;
+        if (purchase.pendingCompletePurchase) {
+          _inAppPurchase.completePurchase(purchase);
+        }
       }
+      
+      // Check for legacy remove ads product
+      if (purchase.productID == legacyRemoveAdsProductId) {
+        switch (purchase.status) {
+          case PurchaseStatus.purchased:
+          case PurchaseStatus.restored:
+            debugPrint('Legacy remove ads purchase detected in settings - granting premium');
+            _markNoAdsPurchased();
+            break;
+          default:
+            break;
+        }
 
-      if (purchase.pendingCompletePurchase) {
-        _inAppPurchase.completePurchase(purchase);
+        if (purchase.pendingCompletePurchase) {
+          _inAppPurchase.completePurchase(purchase);
+        }
       }
     }
   }

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:video_player/video_player.dart';
@@ -16,20 +17,89 @@ class OnboardingPage extends StatefulWidget {
 class _OnboardingPageState extends State<OnboardingPage> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
-  final int _totalPages = 4;
+  late int _totalPages;
   
   // In-app purchase
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   ProductDetails? _premiumProduct;
   bool _isLoadingProduct = false;
   bool _isPurchasing = false;
+  bool _hasLegacyOrPremium = false;
+  StreamSubscription<List<PurchaseDetails>>? _purchaseSubscription;
 
   @override
   void initState() {
     super.initState();
-    _initPremiumProduct();
+    _totalPages = 4; // Default value
+    _checkLegacyPurchaseAndInit();
   }
 
+  Future<void> _checkLegacyPurchaseAndInit() async {
+    setState(() => _isLoadingProduct = true);
+    
+    // Variables to track if legacy or premium purchase is found
+    bool hasLegacy = false;
+    bool hasPremium = false;
+    
+    try {
+      final available = await _inAppPurchase.isAvailable();
+      if (!available) {
+        _totalPages = 4; // Default to showing premium page if store unavailable
+        setState(() => _isLoadingProduct = false);
+        return;
+      }
+      
+      // Set up purchase stream listener to detect restored purchases
+      _purchaseSubscription = _inAppPurchase.purchaseStream.listen(
+        (List<PurchaseDetails> purchases) {
+          for (final purchase in purchases) {
+            if (purchase.productID == legacyRemoveAdsProductId && 
+                (purchase.status == PurchaseStatus.purchased || purchase.status == PurchaseStatus.restored)) {
+              hasLegacy = true;
+              debugPrint('Legacy remove ads purchase detected in onboarding');
+            }
+            if (purchase.productID == premiumProductId && 
+                (purchase.status == PurchaseStatus.purchased || purchase.status == PurchaseStatus.restored)) {
+              hasPremium = true;
+              debugPrint('Premium purchase detected in onboarding');
+            }
+          }
+        },
+        onError: (error) {
+          debugPrint('Purchase stream error in onboarding: $error');
+        },
+      );
+      
+      // Restore purchases to trigger the stream
+      await _inAppPurchase.restorePurchases();
+      
+      // Wait for purchases to process
+      await Future.delayed(const Duration(milliseconds: 800));
+      
+      _hasLegacyOrPremium = hasLegacy || hasPremium;
+      
+      // If user has legacy or premium, skip the premium page in onboarding
+      _totalPages = _hasLegacyOrPremium ? 3 : 4;
+      
+      debugPrint('Onboarding: hasLegacyOrPremium=$_hasLegacyOrPremium, totalPages=$_totalPages');
+      
+      // Only load premium product if user doesn't already have it
+      if (!_hasLegacyOrPremium) {
+        final response = await _inAppPurchase.queryProductDetails({premiumProductId});
+        if (response.productDetails.isNotEmpty) {
+          _premiumProduct = response.productDetails.first;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error checking legacy purchase: $e');
+      _totalPages = 4; // Default to showing premium page on error
+    } finally {
+      if (mounted) {
+        setState(() => _isLoadingProduct = false);
+      }
+    }
+  }
+  
   Future<void> _initPremiumProduct() async {
     setState(() => _isLoadingProduct = true);
     try {
@@ -76,6 +146,7 @@ class _OnboardingPageState extends State<OnboardingPage> {
   @override
   void dispose() {
     _pageController.dispose();
+    _purchaseSubscription?.cancel();
     super.dispose();
   }
 
@@ -204,15 +275,17 @@ class _OnboardingPageState extends State<OnboardingPage> {
                       ],
                     ),
                   ),
-                  _buildPremiumCard(
-                    context: context,
-                    theme: theme,
-                    isDark: isDark,
-                    onPurchase: _purchasePremium,
-                    isPurchasing: _isPurchasing,
-                    isLoadingProduct: _isLoadingProduct,
-                    productPrice: _premiumProduct?.price,
-                  ),
+                  // Only show premium card if user doesn't have legacy or current premium
+                  if (!_hasLegacyOrPremium)
+                    _buildPremiumCard(
+                      context: context,
+                      theme: theme,
+                      isDark: isDark,
+                      onPurchase: _purchasePremium,
+                      isPurchasing: _isPurchasing,
+                      isLoadingProduct: _isLoadingProduct,
+                      productPrice: _premiumProduct?.price,
+                    ),
                 ],
               ),
             ),
