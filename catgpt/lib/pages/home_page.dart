@@ -990,8 +990,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 context,
                 MaterialPageRoute(
                   builder: (context) => SettingsPage(
-                    themeMode: widget.themeMode,
-                    onThemeChanged: widget.onThemeChanged,
+                    isDarkMode: widget.themeMode == 'dark',
+                    onThemeChanged: (isDark) => widget.onThemeChanged(isDark ? 'dark' : 'light'),
                     onClearHistory: _clearHistory,
                     adsRemoved: _adsRemoved,
                     onAdsStatusChanged: _updateAdsRemoved,
@@ -1131,8 +1131,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   context,
                   MaterialPageRoute(
                     builder: (context) => SettingsPage(
-                      themeMode: widget.themeMode,
-                      onThemeChanged: widget.onThemeChanged,
+                      isDarkMode: widget.themeMode == 'dark',
+                      onThemeChanged: (isDark) => widget.onThemeChanged(isDark ? 'dark' : 'light'),
                       onClearHistory: _clearHistory,
                       adsRemoved: _adsRemoved,
                       onAdsStatusChanged: _updateAdsRemoved,
@@ -1153,8 +1153,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   context,
                   MaterialPageRoute(
                     builder: (context) => SettingsPage(
-                      themeMode: widget.themeMode,
-                      onThemeChanged: widget.onThemeChanged,
+                      isDarkMode: widget.themeMode == 'dark',
+                      onThemeChanged: (isDark) => widget.onThemeChanged(isDark ? 'dark' : 'light'),
                       onClearHistory: _clearHistory,
                       adsRemoved: _adsRemoved,
                       onAdsStatusChanged: _updateAdsRemoved,
