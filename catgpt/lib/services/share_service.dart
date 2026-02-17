@@ -75,7 +75,9 @@ class ShareService {
       final textHeight = textPainter.height;
       
       // Box height: text height + padding top/bottom + watermark space
-      final boxHeight = (textHeight + (boxPadding * 2) + watermarkHeight).round();
+      // For premium users, use symmetric padding since there's no watermark
+      final initialBottomPadding = isPremium ? boxPadding : (boxPadding + watermarkHeight);
+      final boxHeight = (textHeight + boxPadding + initialBottomPadding).round();
 
       // For better iMessage/Instagram/TikTok compatibility:
       // - Make text box take up ~45% of total height so text is visible in iMessage previews
@@ -199,7 +201,10 @@ class ShareService {
       );
       finalTextPainter.layout(maxWidth: finalWidth - (finalHorizontalPadding * 2));
       final finalTextHeight = finalTextPainter.height;
-      final finalBoxHeight = (finalTextHeight + (finalBoxPadding * 2) + adjustedWatermarkHeight).round();
+      // For premium users, use symmetric padding since there's no watermark
+      // For non-premium, add space for watermark at bottom
+      final bottomPadding = isPremium ? finalBoxPadding : (finalBoxPadding + adjustedWatermarkHeight);
+      final finalBoxHeight = (finalTextHeight + finalBoxPadding + bottomPadding).round();
       
       // Adjust total height if box height changed
       final adjustedTotalHeight = finalHeight + finalBoxHeight;

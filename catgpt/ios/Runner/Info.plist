@@ -50,7 +50,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>This app needs access to photo library to select images for translation.</string>
 	<key>GADApplicationIdentifier</key>
-	<!-- Test build - Production iOS App ID was: ca-app-pub-6637557002473159~4927413028 -->
-	<string>ca-app-pub-3940256099942544~1458002511</string>
+	<!-- Test iOS App ID: ca-app-pub-3940256099942544~1458002511 -->
+	<string>ca-app-pub-6637557002473159~4927413028</string>
 </dict>
 </plist>

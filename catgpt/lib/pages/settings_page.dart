@@ -5,18 +5,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
+import 'tutorial_page.dart';
 import '../constants/purchase_constants.dart';
 
 class SettingsPage extends StatefulWidget {
-  final String themeMode;
-  final Function(String) onThemeChanged;
+  final bool isDarkMode;
+  final Function(bool) onThemeChanged;
   final VoidCallback onClearHistory;
   final bool adsRemoved;
   final ValueChanged<bool> onAdsStatusChanged;
 
   const SettingsPage({
     super.key,
-    required this.themeMode,
+    required this.isDarkMode,
     required this.onThemeChanged,
     required this.onClearHistory,
     required this.adsRemoved,
@@ -28,7 +29,7 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  late String _themeMode;
+  late bool _isDarkMode;
   late bool _adsRemoved;
   final InAppPurchase _inAppPurchase = InAppPurchase.instance;
   StreamSubscription<List<PurchaseDetails>>? _subscription;
@@ -41,7 +42,7 @@ class _SettingsPageState extends State<SettingsPage> {
   @override
   void initState() {
     super.initState();
-    _themeMode = widget.themeMode;
+    _isDarkMode = widget.isDarkMode;
     _adsRemoved = widget.adsRemoved;
     _subscription = _inAppPurchase.purchaseStream.listen(
       _onPurchaseUpdated,
@@ -58,9 +59,9 @@ class _SettingsPageState extends State<SettingsPage> {
         _adsRemoved = widget.adsRemoved;
       });
     }
-    if (oldWidget.themeMode != widget.themeMode) {
+    if (oldWidget.isDarkMode != widget.isDarkMode) {
       setState(() {
-        _themeMode = widget.themeMode;
+        _isDarkMode = widget.isDarkMode;
       });
     }
   }
@@ -156,52 +157,34 @@ class _SettingsPageState extends State<SettingsPage> {
 
   void _onPurchaseUpdated(List<PurchaseDetails> purchases) {
     for (final purchase in purchases) {
-      // Check for current premium product
-      if (purchase.productID == noAdsProductId) {
-        switch (purchase.status) {
-          case PurchaseStatus.purchased:
-          case PurchaseStatus.restored:
-            _markNoAdsPurchased();
-            break;
-          case PurchaseStatus.pending:
-            setState(() => _purchasePending = true);
-            break;
-          case PurchaseStatus.canceled:
-            setState(() {
-              _purchasePending = false;
-              _purchaseError = 'Purchase canceled';
-            });
-            break;
-          case PurchaseStatus.error:
-            setState(() {
-              _purchasePending = false;
-              _purchaseError = purchase.error?.message ?? 'Purchase failed';
-            });
-            break;
-          default:
-            break;
-        }
+      if (purchase.productID != noAdsProductId) continue;
 
-        if (purchase.pendingCompletePurchase) {
-          _inAppPurchase.completePurchase(purchase);
-        }
+      switch (purchase.status) {
+        case PurchaseStatus.purchased:
+        case PurchaseStatus.restored:
+          _markNoAdsPurchased();
+          break;
+        case PurchaseStatus.pending:
+          setState(() => _purchasePending = true);
+          break;
+        case PurchaseStatus.canceled:
+          setState(() {
+            _purchasePending = false;
+            _purchaseError = 'Purchase canceled';
+          });
+          break;
+        case PurchaseStatus.error:
+          setState(() {
+            _purchasePending = false;
+            _purchaseError = purchase.error?.message ?? 'Purchase failed';
+          });
+          break;
+        default:
+          break;
       }
-      
-      // Check for legacy remove ads product
-      if (purchase.productID == legacyRemoveAdsProductId) {
-        switch (purchase.status) {
-          case PurchaseStatus.purchased:
-          case PurchaseStatus.restored:
-            debugPrint('Legacy remove ads purchase detected in settings - granting premium');
-            _markNoAdsPurchased();
-            break;
-          default:
-            break;
-        }
 
-        if (purchase.pendingCompletePurchase) {
-          _inAppPurchase.completePurchase(purchase);
-        }
+      if (purchase.pendingCompletePurchase) {
+        _inAppPurchase.completePurchase(purchase);
       }
     }
   }
@@ -364,7 +347,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       const SizedBox(height: 12),
                       _buildFeatureItem(theme, Icons.no_photography_rounded, 'No watermark on shares'),
                       const SizedBox(height: 12),
-                      _buildFeatureItem(theme, Icons.auto_awesome_rounded, 'Support indie developers!'),
+                      _buildFeatureItem(theme, Icons.auto_awesome_rounded, 'Premium captions (coming soon)'),
                       const SizedBox(height: 16),
                       if (_purchaseError != null) ...[
                         Container(
@@ -483,6 +466,40 @@ class _SettingsPageState extends State<SettingsPage> {
               ),
               const SizedBox(height: 32),
             ],
+            // Help & Support Section
+            Padding(
+              padding: const EdgeInsets.only(left: 4, bottom: 12),
+              child: Text(
+                'Help & Support',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: theme.colorScheme.onSurface,
+                ),
+              ),
+            ),
+            _buildModernCard(
+              context,
+              theme: theme,
+              isDark: isDark,
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TutorialPage(),
+                  ),
+                );
+              },
+              icon: Icons.school_rounded,
+              iconColor: theme.colorScheme.primary,
+              title: 'Tutorial',
+              subtitle: 'Learn how to use CatGPT',
+              trailing: Icon(
+                Icons.arrow_forward_ios_rounded,
+                size: 16,
+                color: theme.colorScheme.onSurface.withOpacity(0.4),
+              ),
+            ),
+            const SizedBox(height: 32),
             // Appearance Section
             Padding(
               padding: const EdgeInsets.only(left: 4, bottom: 12),
@@ -499,60 +516,20 @@ class _SettingsPageState extends State<SettingsPage> {
               theme: theme,
               isDark: isDark,
               onTap: null,
-              icon: _themeMode == 'dark' 
-                  ? Icons.dark_mode_rounded 
-                  : (_themeMode == 'light' ? Icons.light_mode_rounded : Icons.brightness_auto_rounded),
+              icon: _isDarkMode ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
               iconColor: theme.colorScheme.primary,
-              title: 'Theme',
-              subtitle: _themeMode == 'system' 
-                  ? 'Following system settings'
-                  : (_themeMode == 'dark' ? 'Dark mode' : 'Light mode'),
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: theme.colorScheme.primary.withOpacity(0.3),
-                    width: 1,
-                  ),
-                ),
-                child: DropdownButton<String>(
-                  value: _themeMode,
-                  underline: const SizedBox(),
-                  isDense: true,
-                  icon: Icon(
-                    Icons.arrow_drop_down_rounded,
-                    color: theme.colorScheme.primary,
-                  ),
-                  dropdownColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: theme.colorScheme.primary,
-                  ),
-                  items: const [
-                    DropdownMenuItem(
-                      value: 'system',
-                      child: Text('System'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'light',
-                      child: Text('Light'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'dark',
-                      child: Text('Dark'),
-                    ),
-                  ],
-                  onChanged: (value) async {
-                    if (value != null) {
-                      final prefs = await SharedPreferences.getInstance();
-                      await prefs.setString('themeMode', value);
-                      setState(() => _themeMode = value);
-                      widget.onThemeChanged(value);
-                    }
-                  },
-                ),
+              title: 'Dark Mode',
+              subtitle: _isDarkMode
+                  ? 'Switch to light mode'
+                  : 'Switch to dark mode',
+              trailing: Switch(
+                value: _isDarkMode,
+                onChanged: (value) async {
+                  final prefs = await SharedPreferences.getInstance();
+                  await prefs.setBool('isDarkMode', value);
+                  setState(() => _isDarkMode = value);
+                  widget.onThemeChanged(value);
+                },
               ),
             ),
             const SizedBox(height: 32),

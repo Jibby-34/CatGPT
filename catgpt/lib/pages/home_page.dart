@@ -293,16 +293,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     // kDebugMode is automatically true when running 'flutter run' or in debug builds
     // kDebugMode is automatically false when running 'flutter run --release' or in release builds
     String adUnitId;
-    // Test build - using test ad unit IDs only
-    // Production Android ID was: ca-app-pub-6637557002473159/5599342776
-    // Production iOS ID was: ca-app-pub-6637557002473159/2893288388
+    // Production ad unit IDs
+    // Test Android ID: ca-app-pub-3940256099942544/5224354917
+    // Test iOS ID: ca-app-pub-3940256099942544/1712485313
     if (Platform.isAndroid) {
-      adUnitId = 'ca-app-pub-3940256099942544/5224354917'; // Test rewarded ad unit ID for Android
+      adUnitId = 'ca-app-pub-6637557002473159/5599342776'; // Production rewarded ad unit ID for Android
     } else if (Platform.isIOS) {
-      adUnitId = 'ca-app-pub-3940256099942544/1712485313'; // Test rewarded ad unit ID for iOS
+      adUnitId = 'ca-app-pub-6637557002473159/2893288388'; // Production rewarded ad unit ID for iOS
     } else {
       // Fallback for other platforms
-      adUnitId = 'ca-app-pub-3940256099942544/5224354917'; // Test rewarded ad unit ID
+      adUnitId = 'ca-app-pub-6637557002473159/5599342776'; // Production rewarded ad unit ID
     }
     
     debugPrint('Loading rewarded ad in ${kDebugMode ? "DEBUG" : "RELEASE"} mode on ${Platform.isAndroid ? "Android" : Platform.isIOS ? "iOS" : "Unknown"} with ID: $adUnitId');
